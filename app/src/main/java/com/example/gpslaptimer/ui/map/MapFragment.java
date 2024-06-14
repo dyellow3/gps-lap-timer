@@ -13,7 +13,11 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
+import com.example.gpslaptimer.utils.LapDetection;
+import com.example.gpslaptimer.utils.MapDrawing;
 import com.example.gpslaptimer.R;
+import com.example.gpslaptimer.models.Lap;
+import com.example.gpslaptimer.models.LocationData;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -109,7 +113,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                     LocationData curr = new LocationData(new LatLng(latitude, longitude), speed, 1);
 
                     if(prev != null) {
-                        double distance = LapDetectionUtil.calculateDistance(curr.getCoordinate(), prev.getCoordinate());
+                        double distance = LapDetection.calculateDistance(curr.getCoordinate(), prev.getCoordinate());
                         if(distance > 1) {
                             this.locationData.add(curr);
                             prev = curr;
@@ -129,7 +133,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     }
 
     private void processLocationData() {
-        laps = LapDetectionUtil.getLaps(locationData, googleMap, polylines);
+        laps = LapDetection.getLaps(locationData, googleMap, polylines);
         if (!laps.isEmpty()) {
             updateUI();
             nextButton.setOnClickListener(v -> {
@@ -140,7 +144,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     }
 
     private void updateUI() {
-        MapDrawingUtil.drawLap(googleMap, laps.get(currentLapIndex).getLocationData(), polylines, markers);
+        MapDrawing.drawLap(googleMap, laps.get(currentLapIndex).getLocationData(), polylines, markers);
         textViewLapTime.setText(String.format("Lap time: %s", formatLapTime(laps.get(currentLapIndex).getLapTime())));
         textViewLaps.setText(String.format("Total laps done: %d", laps.size()));
         textCurrentLap.setText(String.format("Viewing lap: %d", currentLapIndex + 1));

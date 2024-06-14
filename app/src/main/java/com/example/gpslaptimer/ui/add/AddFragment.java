@@ -23,8 +23,8 @@ import com.example.gpslaptimer.MainActivity;
 import com.example.gpslaptimer.R;
 import com.example.gpslaptimer.adapters.ConsoleLogAdapter;
 import com.example.gpslaptimer.ui.connect.ConnectViewModel;
-import com.example.gpslaptimer.ui.map.LapDetectionUtil;
-import com.example.gpslaptimer.ui.map.LocationData;
+import com.example.gpslaptimer.utils.LapDetection;
+import com.example.gpslaptimer.models.LocationData;
 import com.example.gpslaptimer.ui.map.MapViewModel;
 import com.google.android.gms.maps.model.LatLng;
 
@@ -128,7 +128,7 @@ public class AddFragment extends Fragment {
                                 LocationData curr = new LocationData(new LatLng(latitude, longitude), speed, 1);
 
                                 if(prev != null) {
-                                    double distance = LapDetectionUtil.calculateDistance(curr.getCoordinate(), prev.getCoordinate());
+                                    double distance = LapDetection.calculateDistance(curr.getCoordinate(), prev.getCoordinate());
                                     if(distance > 1) {
                                         coordinates.add(curr);
                                         prev = curr;
