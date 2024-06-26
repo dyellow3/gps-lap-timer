@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModelProvider;
 
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
+import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -19,6 +21,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 
+import com.example.gpslaptimer.GpsService;
 import com.example.gpslaptimer.MainActivity;
 import com.example.gpslaptimer.R;
 import com.example.gpslaptimer.adapters.ConsoleLogAdapter;
@@ -53,6 +56,8 @@ public class AddFragment extends Fragment {
     private PowerManager.WakeLock wakeLock;
     private LocationData prev;
 
+    private boolean isTracking = false;
+
 
     public static AddFragment newInstance() {
         return new AddFragment();
@@ -73,6 +78,7 @@ public class AddFragment extends Fragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_add, container, false);
+
         connectViewModel = new ViewModelProvider(requireActivity()).get(ConnectViewModel.class);
         mapViewModel = new ViewModelProvider(requireActivity()).get(MapViewModel.class);
         buttonStartStop = rootView.findViewById(R.id.buttonStartStop);
@@ -83,7 +89,6 @@ public class AddFragment extends Fragment {
         adapter = new ConsoleLogAdapter(logMessages);
         recyclerView.setAdapter(adapter);
 
-
         connectViewModel.getConnectionStatus().observe(getViewLifecycleOwner(), isConnected -> {
             if (isConnected != null) {
                 buttonStartStop.setEnabled(isConnected);
@@ -92,11 +97,9 @@ public class AddFragment extends Fragment {
                     //startReadingMessages();
                     connectViewModel.getReceivedMessage().observe(getViewLifecycleOwner(), message -> {
                         // Process the received message
-                        // You can add your existing message handling logic here
                         if (!message.isEmpty()) {
                             Log.d(TAG, "Received Message: " + message);
-                            adapter.addMessage("Received Message: " + message);
-                            recyclerView.scrollToPosition(adapter.getItemCount() - 1);
+                            logMessage("Received Message: " + message);
                         }
 
                         if (message.contains("Starting GPS")) {
@@ -148,7 +151,6 @@ public class AddFragment extends Fragment {
             }
         });
 
-
         buttonStartStop.setOnClickListener(v -> {
             BluetoothSocket bluetoothSocket = connectViewModel.getBluetoothSocket().getValue();
             if(bluetoothSocket != null && bluetoothSocket.isConnected()) {
@@ -157,13 +159,11 @@ public class AddFragment extends Fragment {
                     outputStream = bluetoothSocket.getOutputStream();
                     if(!flag) {
                         outputStream.write("start;".getBytes());
-                        adapter.addMessage("Sent 'start; command to the Bluetooth device");
-                        recyclerView.scrollToPosition(adapter.getItemCount() - 1);
+                        logMessage("Sent 'start; command to the Bluetooth device");
                         Log.d(TAG, "Sent 'start; command to the Bluetooth device");
                     } else {
                         outputStream.write("stop;".getBytes());
-                        adapter.addMessage("Sent 'stop; command to the Bluetooth device");
-                        recyclerView.scrollToPosition(adapter.getItemCount() - 1);
+                        logMessage("Sent 'stop; command to the Bluetooth device");
                         Log.d(TAG, "Sent 'stop; command to the Bluetooth device");
                     }
                     outputStream.flush();
@@ -177,6 +177,12 @@ public class AddFragment extends Fragment {
 
         return rootView;
     }
+
+    private void logMessage(String message) {
+        adapter.addMessage(message);
+        recyclerView.scrollToPosition(adapter.getItemCount() - 1);
+    }
+
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
@@ -209,8 +215,7 @@ public class AddFragment extends Fragment {
             Log.e(TAG, "Error writing coordinates to file", e);
             return false;
         }
-        adapter.addMessage("Wrote " + count + " lines to " + fileName);
-        recyclerView.scrollToPosition(adapter.getItemCount() - 1);
+        logMessage("Wrote " + count + " lines to " + fileName);
         Log.d(TAG, "Wrote " + count + " lines to " + fileName);
         return true;
     }
@@ -225,7 +230,7 @@ public class AddFragment extends Fragment {
         while (file.exists()) {
             String newName = baseName + "(" + index + ")";
             Log.d(TAG, "Filename is now " + newName);
-            adapter.addMessage("Filename is now " + newName);
+            logMessage("Filename is now " + newName);
             file = new File(directory, newName);
             index++;
         }
