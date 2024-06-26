@@ -13,3 +13,4 @@ android/captures
 android/.externalNativeBuild
 android/.cxx
 android/local.properties
+android/secrets.properties
