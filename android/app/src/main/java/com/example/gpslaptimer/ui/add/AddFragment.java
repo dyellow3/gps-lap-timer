@@ -21,7 +21,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 
-import com.example.gpslaptimer.GpsService;
 import com.example.gpslaptimer.MainActivity;
 import com.example.gpslaptimer.R;
 import com.example.gpslaptimer.adapters.ConsoleLogAdapter;
@@ -55,9 +54,6 @@ public class AddFragment extends Fragment {
     private List<String> logMessages;
     private PowerManager.WakeLock wakeLock;
     private LocationData prev;
-
-    private boolean isTracking = false;
-
 
     public static AddFragment newInstance() {
         return new AddFragment();
