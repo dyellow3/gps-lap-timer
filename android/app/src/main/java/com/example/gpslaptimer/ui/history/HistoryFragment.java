@@ -79,8 +79,6 @@ public class HistoryFragment extends Fragment {
                 });
 
                 cancelButton.setOnClickListener(v -> dialog.dismiss());
-
-
             }
         });
         recyclerView.setAdapter(adapter);

@@ -1,5 +1,6 @@
 package com.example.gpslaptimer.ui.map;
 
+import android.app.AlertDialog;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -90,10 +91,11 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         this.googleMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
 
         if (!locationData.isEmpty()) {
-                requireActivity().runOnUiThread((this::processLocationData));
-                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(locationData.get((0)).getCoordinate().latitude, locationData.get((0)).getCoordinate().longitude), 15));
+            requireActivity().runOnUiThread((this::processLocationData));
+            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(locationData.get((0)).getCoordinate().latitude, locationData.get((0)).getCoordinate().longitude), 15));
         } else {
-            Log.d(TAG, "No location data.");
+            showMessage("No location data detected");
+            Log.d(TAG, "No location data detected");
         }
     }
 
@@ -128,6 +130,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                 }
             }
         } catch (IOException e) {
+            showMessage("Error reading coordinates from file");
             Log.e(TAG, "Error reading coordinates from file", e);
         }
     }
@@ -140,6 +143,8 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                 currentLapIndex = (currentLapIndex + 1) % laps.size();
                 updateUI();
             });
+        } else {
+            showMessage("No laps detected");
         }
     }
 
@@ -156,7 +161,17 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         return String.format("%d:%06.3f", minutes, seconds);
     }
 
+    private void showMessage(String message) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+        LayoutInflater inflater = requireActivity().getLayoutInflater();
+        View dialogView = inflater.inflate(R.layout.dialog_message, null);
+        builder.setView(dialogView);
+
+        TextView textView = dialogView.findViewById(R.id.textView);
+        textView.setText(message);
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
 }
-
-
-

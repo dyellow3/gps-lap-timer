@@ -4,8 +4,6 @@ import androidx.lifecycle.ViewModelProvider;
 
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
-import android.content.Intent;
-import android.os.Build;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -45,9 +43,8 @@ public class AddFragment extends Fragment {
     private static final String TAG = "AddFragment";
     private ConnectViewModel connectViewModel;
     Button buttonStartStop;
-    private boolean flag = false;
+    private boolean isTracking = false;
     private List<LocationData> coordinates = new ArrayList<>();
-    private Thread readThread;
     String fileName = "";
     RecyclerView recyclerView;
     private ConsoleLogAdapter adapter;
@@ -57,17 +54,6 @@ public class AddFragment extends Fragment {
 
     public static AddFragment newInstance() {
         return new AddFragment();
-    }
-
-    private void acquireWakeLock() {
-        PowerManager powerManager = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyApp::WakeLock");
-        wakeLock.acquire();
-    }
-    private void releaseWakeLock() {
-        if (wakeLock != null && wakeLock.isHeld()) {
-            wakeLock.release();
-        }
     }
 
 
@@ -88,37 +74,32 @@ public class AddFragment extends Fragment {
         connectViewModel.getConnectionStatus().observe(getViewLifecycleOwner(), isConnected -> {
             if (isConnected != null) {
                 buttonStartStop.setEnabled(isConnected);
+                updateButtonStartStopText(isConnected, isTracking);
                 Log.d(TAG, "Connection Status: " + isConnected);
                 if(isConnected) {
-                    //startReadingMessages();
                     connectViewModel.getReceivedMessage().observe(getViewLifecycleOwner(), message -> {
-                        // Process the received message
+                        // Processing received message
                         if (!message.isEmpty()) {
-                            Log.d(TAG, "Received Message: " + message);
                             logMessage("Received Message: " + message);
                         }
 
                         if (message.contains("Starting GPS")) {
-                            flag = true;
+                            isTracking = true;
+                            updateButtonStartStopText(isConnected, isTracking);
                             acquireWakeLock();
                             coordinates.clear();
                             prev = null;
-                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                                LocalDate today = LocalDate.now();
-                                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM-dd");
-                                fileName = getUniqueFileName(today.format(formatter));
-                            } else {
-                                fileName = "Unknown date";
-                            }
-                        } else if (message.contains("Stopping GPS")) {
-                            flag = false;
+                        } else if (message.contains("Stopping GPS") && isTracking) {
+                            isTracking = false;
+                            updateButtonStartStopText(isConnected, isTracking);
                             releaseWakeLock();
-                            fileName = getUniqueFileName(fileName);
+                            fileName = getUniqueFileName();
                             if(saveCoordinatesToFile(coordinates, fileName)) {
                                 mapViewModel.setFileName(fileName);
                                 ((MainActivity) getActivity()).onMapFragmentRequest();
                             }
-                        } else if (flag) {
+
+                        } else if (isTracking) {
                             String[] parts = message.split(",");
                             if(parts.length == 3) {
                                 double latitude = Double.parseDouble(parts[0].trim());
@@ -127,6 +108,7 @@ public class AddFragment extends Fragment {
                                 LocationData curr = new LocationData(new LatLng(latitude, longitude), speed, 1);
 
                                 if(prev != null) {
+                                    // Distance between two consecutive point should be greater than 1m - should help to prevent clustering
                                     double distance = LapDetection.calculateDistance(curr.getCoordinate(), prev.getCoordinate());
                                     if(distance > 1) {
                                         coordinates.add(curr);
@@ -141,8 +123,6 @@ public class AddFragment extends Fragment {
                             }
                         }
                     });
-                } else {
-                    stopReadingMessages();
                 }
             }
         });
@@ -150,35 +130,24 @@ public class AddFragment extends Fragment {
         buttonStartStop.setOnClickListener(v -> {
             BluetoothSocket bluetoothSocket = connectViewModel.getBluetoothSocket().getValue();
             if(bluetoothSocket != null && bluetoothSocket.isConnected()) {
-                OutputStream outputStream = null;
                 try {
-                    outputStream = bluetoothSocket.getOutputStream();
-                    if(!flag) {
+                    OutputStream outputStream = bluetoothSocket.getOutputStream();
+                    if(!isTracking) {
                         outputStream.write("start;".getBytes());
                         logMessage("Sent 'start; command to the Bluetooth device");
-                        Log.d(TAG, "Sent 'start; command to the Bluetooth device");
                     } else {
                         outputStream.write("stop;".getBytes());
                         logMessage("Sent 'stop; command to the Bluetooth device");
-                        Log.d(TAG, "Sent 'stop; command to the Bluetooth device");
                     }
                     outputStream.flush();
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-
             }
         });
 
-
         return rootView;
     }
-
-    private void logMessage(String message) {
-        adapter.addMessage(message);
-        recyclerView.scrollToPosition(adapter.getItemCount() - 1);
-    }
-
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
@@ -191,10 +160,22 @@ public class AddFragment extends Fragment {
         releaseWakeLock();
     }
 
-    private void stopReadingMessages() {
-        if(readThread != null && readThread.isAlive()) {
-            readThread.interrupt();
+    private void acquireWakeLock() {
+        PowerManager powerManager = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyApp::WakeLock");
+        wakeLock.acquire();
+    }
+
+    private void releaseWakeLock() {
+        if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release();
         }
+    }
+
+    private void logMessage(String message) {
+        adapter.addMessage(message);
+        recyclerView.scrollToPosition(adapter.getItemCount() - 1);
+        Log.d(TAG, message);
     }
 
     private boolean saveCoordinatesToFile(List<LocationData> coordinates, String fileName) {
@@ -212,11 +193,17 @@ public class AddFragment extends Fragment {
             return false;
         }
         logMessage("Wrote " + count + " lines to " + fileName);
-        Log.d(TAG, "Wrote " + count + " lines to " + fileName);
         return true;
     }
 
-    private String getUniqueFileName(String baseName) {
+    private String getUniqueFileName() {
+        String baseName = "Unknown date";
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            LocalDate today = LocalDate.now();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM-dd");
+            baseName = today.format(formatter);
+        }
+
         if (getContext() == null) return baseName;
         File directory = getContext().getExternalFilesDir(null);
         if (directory == null) return baseName;
@@ -225,11 +212,21 @@ public class AddFragment extends Fragment {
         int index = 1;
         while (file.exists()) {
             String newName = baseName + "(" + index + ")";
-            Log.d(TAG, "Filename is now " + newName);
             logMessage("Filename is now " + newName);
             file = new File(directory, newName);
             index++;
         }
         return file.getName();
     }
+
+    private void updateButtonStartStopText(boolean isConnected, boolean isTracking) {
+        if (!isConnected) {
+            buttonStartStop.setText("Not Connected");
+        } else if (!isTracking) {
+            buttonStartStop.setText("Start");
+        } else {
+            buttonStartStop.setText("Stop");
+        }
+    }
+
 }

@@ -57,7 +57,7 @@ public class ConnectViewModel extends ViewModel {
     }
 
     public void setBluetoothDevice(BluetoothDevice device) {
-        disconnect(); // Cancel ongoing connection
+        disconnect();
         this.bluetoothDevice = device;
     }
 

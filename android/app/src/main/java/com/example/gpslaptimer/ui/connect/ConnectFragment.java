@@ -163,13 +163,15 @@ public class ConnectFragment extends Fragment {
         // Connection result observation
         connectViewModel.getConnectionStatus().observe(getViewLifecycleOwner(), connectionStatus -> {
             if (connectionStatus != null && connectionStatus) {
-                dialog.dismiss(); // Close the dialog on successful connection
+                dialog.dismiss();
                 connectViewModel.setPreviouslyConnected(true);
             } else {
-                connectButton.setEnabled(true); // Re-enable the buttons on failure
+                // On failure
+                connectButton.setEnabled(true);
                 cancelButton.setEnabled(true);
             }
         });
+
         // Reconnect / disconnect observation
         addViewModel.getIsRunning().observe(getViewLifecycleOwner(), isRunning -> {
            if(isRunning && Boolean.TRUE.equals(connectViewModel.getPreviouslyConnected().getValue())) {
@@ -194,7 +196,7 @@ public class ConnectFragment extends Fragment {
             for (BluetoothDevice device : pairedDevices) {
                 String deviceName = device.getName();
                 if (deviceName != null) {
-                    String deviceHardwareAddress = device.getAddress(); // MAC address
+                    String deviceHardwareAddress = device.getAddress();
                     Log.d(TAG, deviceName + "\n");
                     Log.d(TAG, deviceHardwareAddress + "\n");
                     deviceModels.add(new BluetoothDeviceModel(deviceName, deviceHardwareAddress));

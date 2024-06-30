@@ -310,7 +310,7 @@ public class LapDetection {
     }
 
     public static double calculateDistance(LatLng point1, LatLng point2) {
-        double earthRadius = 6371000; // Earth's radius in meters
+        double earthRadius = 6371000;
         double lat1 = Math.toRadians(point1.latitude);
         double lon1 = Math.toRadians(point1.longitude);
         double lat2 = Math.toRadians(point2.latitude);

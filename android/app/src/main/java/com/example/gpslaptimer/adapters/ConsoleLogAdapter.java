@@ -47,7 +47,7 @@ public class ConsoleLogAdapter extends RecyclerView.Adapter<ConsoleLogAdapter.Co
     }
 
     public void addMessage(String message) {
-        logMessages.add(message); // assuming logMessages is your list of messages
+        logMessages.add(message);
         notifyItemInserted(logMessages.size() - 1);
     }
 
