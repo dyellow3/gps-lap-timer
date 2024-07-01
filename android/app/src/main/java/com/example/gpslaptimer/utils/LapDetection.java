@@ -3,6 +3,8 @@ package com.example.gpslaptimer.utils;
 import android.util.Log;
 import android.util.Pair;
 
+import com.example.gpslaptimer.models.Grid;
+import com.example.gpslaptimer.models.GridCell;
 import com.example.gpslaptimer.models.Lap;
 import com.example.gpslaptimer.models.LocationData;
 import com.google.android.gms.maps.GoogleMap;
@@ -18,16 +20,15 @@ import java.util.ArrayList;
 import java.util.List;
 public class LapDetection {
     private static final String TAG = "LapDetectionUtil";
-    private static final double RADIUS_THRESHOLD = 4.5;
     private static final double GPS_HZ = 1; // Using Neo-6m
+    private static final double GRID_SIZE = 1.0;
+    private static final double DIRECTION_TOLERANCE = Math.toRadians(45);
 
-    public static List<Lap> getLaps(List<LocationData> locationData, GoogleMap googleMap, List<Polyline> polylines) {
-        List<Integer> startFinishPoints = getStartFinishPoints(locationData);
+    public static List<Lap> getLaps(List<LocationData> locationData, GoogleMap googleMap, List<Polyline> polylines, List<Double> gridBounds, List<Double> longitudes, List<Double> latitudes) {
+        List<LatLng> finishLine = getFinishLine(locationData, gridBounds, 8.0);
 
-        if(startFinishPoints != null) {
-            List<LatLng> finishLine = getFinishLine(locationData, startFinishPoints, 8);
+        if(finishLine != null) {
             MapDrawing.drawLine(googleMap, finishLine);
-
             LatLng finishLineStartPoint = finishLine.get(0);
             LatLng finishLineEndPoint = finishLine.get(1);
 
@@ -40,7 +41,8 @@ public class LapDetection {
                 LatLng prevPoint = locationData.get(i - 1).getCoordinate();
                 LatLng currPoint = locationData.get(i).getCoordinate();
                 LatLng intersectionPoint = getLineSegmentIntersection(prevPoint, currPoint, finishLineStartPoint, finishLineEndPoint);
-                if (intersectionPoint != null ) {
+
+                if (intersectionPoint != null && i - startIndex > 2) {
                     List<LocationData> lap = new ArrayList<>(locationData.subList(startIndex, i + 1));
                     Pair<Double, Double> lapTime = getLapTime(lap, finishLineStartPoint, finishLineEndPoint);
                     laps.add(new Lap(lap, lapTime.first + carryOverTime));
@@ -49,7 +51,17 @@ public class LapDetection {
                 }
             }
 
-            Log.d(TAG, laps.size() + " laps detected");
+            // Add leftover lap data
+            if (startIndex < locationData.size() - 1) {
+                List<LocationData> finalLap = new ArrayList<>(locationData.subList(startIndex, locationData.size()));
+                double finalLapTime = 0;
+                for(int i = 0; i < finalLap.size(); i++) {
+                    finalLapTime += finalLap.get(i).getWeight();
+                }
+                laps.add(new Lap(finalLap, finalLapTime + carryOverTime));
+            }
+
+
             if(laps.isEmpty()) {
                 Log.d(TAG, "Could not detect any laps");
                 MapDrawing.drawAllCoordinates(googleMap, locationData, polylines);
@@ -60,6 +72,51 @@ public class LapDetection {
             MapDrawing.drawAllCoordinates(googleMap, locationData, polylines);
             return new ArrayList<>();
         }
+
+    }
+
+
+    public static List<LatLng> getFinishLine(List<LocationData> locationData, List<Double> gridBounds, double lineLength) {
+        Grid grid = Grid.createGrid(locationData, gridBounds, GRID_SIZE, DIRECTION_TOLERANCE);
+
+        if(grid != null) {
+            GridCell maxCountCell = grid.getMaxCountCell();
+            if(maxCountCell != null && maxCountCell.getCount() > 1) {
+                LatLng centerLatLng = getAveragePoint(maxCountCell.getPoints());
+                LatLng directionVector = maxCountCell.getDirectionVector();
+
+                // Perpendicular vector
+                double perpendicularLat = -directionVector.longitude;
+                double perpendicularLng = directionVector.latitude;
+                double distanceInDegrees = lineLength / 111111; // Approximate conversion factor: 1 degree ≈ 111,111 meters
+
+                // End points of the perpendicular line
+                double startLat = centerLatLng.latitude - (perpendicularLat * distanceInDegrees / 2);
+                double startLng = centerLatLng.longitude - (perpendicularLng * distanceInDegrees / 2);
+                double endLat = centerLatLng.latitude + (perpendicularLat * distanceInDegrees / 2);
+                double endLng = centerLatLng.longitude + (perpendicularLng * distanceInDegrees / 2);
+
+                List<LatLng> finishLine = new ArrayList<>();
+                finishLine.add(new LatLng(startLat, startLng));
+                finishLine.add(new LatLng(endLat, endLng));
+
+                return finishLine;
+            }
+        }
+
+        return null;
+    }
+
+    public static LatLng getAveragePoint(List<LocationData> points) {
+        double sumLat = 0;
+        double sumLng = 0;
+
+        for (LocationData point : points) {
+            sumLat += point.getCoordinate().latitude;
+            sumLng += point.getCoordinate().longitude;
+        }
+
+        return new LatLng(sumLat / points.size(), sumLng / points.size());
     }
 
     public static Pair<Double, Double> getLapTime(List<LocationData> lap, LatLng finishLineStartPoint, LatLng finishLineEndPoint) {
@@ -70,7 +127,6 @@ public class LapDetection {
         if (n > 2) {
             LocationData lastPoint = lap.get(n-1);
             LocationData secondLastPoint = lap.get(n-2);
-
 
             double segmentDistance = calculateDistance(secondLastPoint.getCoordinate(), lastPoint.getCoordinate());
             double segmentTime = 1 / GPS_HZ;
@@ -93,6 +149,7 @@ public class LapDetection {
 
             LatLng intersectionPoint = getLineSegmentIntersection(secondLastPoint.getCoordinate(), lastPoint.getCoordinate(), finishLineStartPoint, finishLineEndPoint);
             if (intersectionPoint != null) {
+
                 double distanceToIntersection = calculateDistance(secondLastPoint.getCoordinate(), intersectionPoint);
                 double timeToIntersection = (distanceToIntersection / segmentDistance) * segmentTime;
 
@@ -105,123 +162,16 @@ public class LapDetection {
                     }
                 }
                 carryOverTime = segmentTime - timeToIntersection;
-                Log.d(TAG, "LapTime: " + lapTime + ", carry: " + carryOverTime);
+
                 /*
                 // Solve for t such that integral over a*t^2 + b*t + c from 0 to t will equal distance to intersection
                 double timeToIntersection = solveTimeToIntersection(a, b, initialSpeed, distanceToIntersection);
                 lapTime = timeToIntersection + (n-2)/GPS_HZ;
-                carryOverTime = 1 - timeToIntersection;*/
+                carryOverTime = 1 - timeToIntersection;
+                */
             }
         }
         return new Pair<>(lapTime, carryOverTime);
-    }
-
-    public static List<LatLng> getFinishLine(List<LocationData> locationData, List<Integer> indexArray, double lineLength) {
-        LatLng centerLatLng = LapDetection.getAveragePoint(locationData, indexArray);
-        LatLng directionVector = LapDetection.getAverageDirectionVector(locationData, indexArray);
-
-        // Perpendicular vector
-        double perpendicularLat = -directionVector.longitude;
-        double perpendicularLng = directionVector.latitude;
-        double distanceInDegrees = lineLength / 111111; // Approximate conversion factor: 1 degree ≈ 111,111 meters
-
-        // End points of the perpendicular line
-        double startLat = centerLatLng.latitude - (perpendicularLat * distanceInDegrees / 2);
-        double startLng = centerLatLng.longitude - (perpendicularLng * distanceInDegrees / 2);
-        double endLat = centerLatLng.latitude + (perpendicularLat * distanceInDegrees / 2);
-        double endLng = centerLatLng.longitude + (perpendicularLng * distanceInDegrees / 2);
-
-        List<LatLng> finishLine = new ArrayList<>();
-        finishLine.add(new LatLng(startLat, startLng));
-        finishLine.add(new LatLng(endLat, endLng));
-
-        return finishLine;
-    }
-
-    public static int detectLapCountFFT(List<Double> coordinates) {
-        int n = coordinates.size();
-        int paddedLength = nextPowerOf2(n);
-        double[] normalizedData = new double[paddedLength];
-
-        double meanCoordinate = coordinates.stream().mapToDouble(Double::doubleValue).average().orElse(0);
-        for (int i = 0; i < n; i++) {
-            normalizedData[i] = coordinates.get(i) - meanCoordinate;
-        }
-        for (int i = n; i < paddedLength; i++) {
-            normalizedData[i] = 0;
-        }
-
-        FastFourierTransformer transformer = new FastFourierTransformer(DftNormalization.STANDARD);
-        Complex[] fft = transformer.transform(normalizedData, TransformType.FORWARD);
-
-        // Find the max power / max frequency, which will indicate an estimate of laps done
-        double maxPower = 0;
-        int maxFrequency = 0;
-        for (int i = 1; i < paddedLength / 2; i++) { // Start from 1 to skip the DC component
-            double power = fft[i].abs();
-            if (power > maxPower) {
-                maxPower = power;
-                maxFrequency = i;
-            }
-        }
-
-        double dominantFrequency = maxFrequency * GPS_HZ / paddedLength;
-        return (int) Math.round(dominantFrequency * (n));
-    }
-
-    public static List<Integer> findClusteredPoints(List<LocationData> locationData, int numOfPoints, double radiusThreshold) {
-        int size = locationData.size();
-        // The start point will be the first point repeated numOfLaps times
-        for (int i = 0; i < size; i++) {
-            LatLng currentPoint = locationData.get(i).getCoordinate();
-            List<Integer> currentIndexArray = new ArrayList<>();
-            currentIndexArray.add(i);
-            for (int j = i + 1; j < size; j++) {
-                LatLng nextPoint = locationData.get(j).getCoordinate();
-                double distance = calculateDistance(currentPoint, nextPoint);
-
-                if (distance <= radiusThreshold) {
-                    currentIndexArray.add(j);
-                    if (currentIndexArray.size() == numOfPoints) {
-                        return currentIndexArray;
-                    }
-                }
-            }
-        }
-        return new ArrayList<Integer>();
-    }
-
-    public static List<Integer> getStartFinishPoints(List<LocationData> locationData) {
-        List<Double> longitudes = new ArrayList<>();
-        List<Double> latitudes = new ArrayList<>();
-
-        for (LocationData data : locationData) {
-            longitudes.add(data.getCoordinate().longitude);
-            latitudes.add(data.getCoordinate().latitude);
-        }
-
-        // Detect lap count using both longitude and latitude
-        int detectLapCountLongitude = detectLapCountFFT(longitudes);
-        int detectLapCountLatitude = detectLapCountFFT(latitudes);
-        Log.d(TAG, "Detected number of laps LONGITUDE: " + detectLapCountLongitude);
-        Log.d(TAG, "Detected number of laps LATITUDE: " + detectLapCountLatitude);
-
-        int estimatedLapCount = Math.min(detectLapCountLatitude, detectLapCountLongitude);
-        int threshold = 2; // minimum number of laps expected
-
-        // We identify the start/finish points as the first estimatedLapCount clustered points
-        while (estimatedLapCount >= threshold) {
-            List<Integer> estimatedStartPoints = findClusteredPoints(locationData, estimatedLapCount, RADIUS_THRESHOLD);
-            if (!estimatedStartPoints.isEmpty()) {
-                return estimatedStartPoints;
-            } else {
-                Log.d(TAG, "Could not find start points with " + estimatedLapCount);
-                estimatedLapCount--;
-            }
-        }
-
-        Log.d(TAG, "Could not find start points of lap");
-        return null;
     }
 
     private static LatLng getLineSegmentIntersection(LatLng p1, LatLng q1, LatLng p2, LatLng q2) {
@@ -252,61 +202,12 @@ public class LapDetection {
         }
     }
 
-    public static double solveTimeToIntersection(double a, double b, double c, double distanceToIntersection) {
-        double epsilon = 1e-6;
-        double left = 0, right = GPS_HZ;
-        double t = (left + right) / 2;
-
-        // Bisection loop to narrow down interval
-        while (Math.abs(right - left) > epsilon) {
-            // Polynomial distance function at t
-            double f = (a / 3) * Math.pow(t, 3) + (b / 2) * Math.pow(t, 2) + c * t - distanceToIntersection;
-
-            if (f > 0) {
-                right = t;
-            } else {
-                left = t;
-            }
-
-            t = (left + right) / 2;
-        }
-
-        return t;
-    }
-
     private static boolean onSegment(LatLng p, LatLng q, LatLng r) {
-        return q.latitude <= Math.max(p.latitude, r.latitude) && q.latitude >= Math.min(p.latitude, r.latitude) &&
-                q.longitude <= Math.max(p.longitude, r.longitude) && q.longitude >= Math.min(p.longitude, r.longitude);
-    }
-
-    public static LatLng getAveragePoint(List<LocationData> locationData, List<Integer> indexArray) {
-        if (indexArray.isEmpty()) return null;
-
-        double sumLat = 0, sumLng = 0;
-        for (int currPointIndex : indexArray) {
-            LatLng currPoint = locationData.get(currPointIndex).getCoordinate();
-            sumLat += currPoint.latitude;
-            sumLng += currPoint.longitude;
-        }
-        return new LatLng(sumLat / indexArray.size(), sumLng / indexArray.size());
-    }
-    public static LatLng getAverageDirectionVector(List<LocationData> locationData, List<Integer> indexArray) {
-        if (indexArray.isEmpty()) return null;
-
-        double sumLat = 0, sumLng = 0;
-        for (int index : indexArray) {
-            int nextIndex = index + 1;
-            if (nextIndex >= locationData.size()) break;
-
-            LatLng currPoint = locationData.get(index).getCoordinate();
-            LatLng nextPoint = locationData.get(nextIndex).getCoordinate();
-
-            sumLat += currPoint.latitude - nextPoint.latitude;
-            sumLng += currPoint.longitude - nextPoint.longitude;
-        }
-
-        double magnitude = Math.sqrt(sumLat * sumLat + sumLng * sumLng);
-        return new LatLng(sumLat / magnitude, sumLng / magnitude);
+        double epsilon = 1e-9;
+        return q.latitude <= Math.max(p.latitude, r.latitude) + epsilon &&
+                q.latitude >= Math.min(p.latitude, r.latitude) - epsilon &&
+                q.longitude <= Math.max(p.longitude, r.longitude) + epsilon &&
+                q.longitude >= Math.min(p.longitude, r.longitude) - epsilon;
     }
 
     public static double calculateDistance(LatLng point1, LatLng point2) {
@@ -328,15 +229,4 @@ public class LapDetection {
         return distance;
     }
 
-    private static int nextPowerOf2(int n) {
-        int count = 0;
-        if (n > 0 && (n & (n - 1)) == 0) {
-            return n;
-        }
-        while (n != 0) {
-            n >>= 1;
-            count += 1;
-        }
-        return 1 << count;
-    }
 }

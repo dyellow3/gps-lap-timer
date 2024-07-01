@@ -43,7 +43,7 @@ public class MainActivity extends AppCompatActivity {
         binding.bottomNavigationView.setOnItemSelectedListener(item -> {
             switch(item.getItemId()) {
                 case R.id.pair:
-                    Log.d("MainActivity", "Loadin ConnectFragment");
+                    Log.d("MainActivity", "Loading ConnectFragment");
                     replaceFragment(new ConnectFragment());
                     break;
                 case R.id.add:
