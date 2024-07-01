@@ -38,6 +38,9 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     private static final String TAG = "MapFragment";
     private SupportMapFragment mapFragment;
     private List<LocationData> locationData = new ArrayList<>();
+    private List<Double> longitudes = new ArrayList<>();
+    private List<Double> latitudes = new ArrayList<>();
+    private List<Double> gridBounds = new ArrayList<>();
     private GoogleMap googleMap;
     private List<Polyline> polylines = new ArrayList<>();
     private List<Marker> markers = new ArrayList<>();
@@ -49,6 +52,10 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     private TextView textViewLapTime;
     private TextView textViewLaps;
     private TextView textCurrentLap;
+    private TextView textPointsDetected;
+    private int pointsDetected;
+    private double minLon, maxLon;
+    private double minLat, maxLat;
 
     public static MapFragment newInstance() {
         return new MapFragment();
@@ -62,6 +69,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         textViewLapTime = rootView.findViewById(R.id.textViewLapTime);
         textViewLaps = rootView.findViewById(R.id.textViewLaps);
         textCurrentLap = rootView.findViewById(R.id.textCurrentLap);
+        textPointsDetected = rootView.findViewById(R.id.textPointsDetected);
 
         mapViewModel.getFileName().observe(getViewLifecycleOwner(), newFileName -> {
             fileName = newFileName;
@@ -100,7 +108,17 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     }
 
     private void readAndStoreCoordinates(String fileName) {
+        minLon = Double.POSITIVE_INFINITY;
+        maxLon = Double.NEGATIVE_INFINITY;
+        minLat = Double.POSITIVE_INFINITY;
+        maxLat = Double.NEGATIVE_INFINITY;
+
+        pointsDetected = 0;
         locationData.clear();
+        latitudes.clear();
+        longitudes.clear();
+        gridBounds.clear();
+
         File directory = getContext().getExternalFilesDir(null);
         File file = new File(directory, fileName);
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
@@ -111,12 +129,22 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                 if (parts.length >= 2) {
                     double latitude = Double.parseDouble(parts[0]);
                     double longitude = Double.parseDouble(parts[1]);
+
+                    latitudes.add(latitude);
+                    longitudes.add(longitude);
+
+                    minLon = Math.min(minLon, longitude);
+                    maxLon = Math.max(maxLon, longitude);
+                    minLat = Math.min(minLat, latitude);
+                    maxLat = Math.max(maxLat, latitude);
+
                     double speed = parts.length == 3 ? Double.parseDouble(parts[2]) : 0;
                     LocationData curr = new LocationData(new LatLng(latitude, longitude), speed, 1);
+                    pointsDetected++;
 
                     if(prev != null) {
                         double distance = LapDetection.calculateDistance(curr.getCoordinate(), prev.getCoordinate());
-                        if(distance > 1) {
+                        if(distance > 0.5) {
                             this.locationData.add(curr);
                             prev = curr;
                         } else {
@@ -129,6 +157,10 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
 
                 }
             }
+            gridBounds.add(minLon);
+            gridBounds.add(maxLon);
+            gridBounds.add(minLat);
+            gridBounds.add(maxLat);
         } catch (IOException e) {
             showMessage("Error reading coordinates from file");
             Log.e(TAG, "Error reading coordinates from file", e);
@@ -136,7 +168,10 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     }
 
     private void processLocationData() {
-        laps = LapDetection.getLaps(locationData, googleMap, polylines);
+        long startTime = System.nanoTime();
+        laps = LapDetection.getLaps(locationData, googleMap, polylines, gridBounds, longitudes, latitudes);
+        long endTime = System.nanoTime();
+        Log.d(TAG, "Runtime: " + (endTime - startTime) / 1_000_000 + " ms");
         if (!laps.isEmpty()) {
             updateUI();
             nextButton.setOnClickListener(v -> {
@@ -145,13 +180,14 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
             });
         } else {
             showMessage("No laps detected");
+            textViewLaps.setText(String.format("Laps detected: %d (%d points)", laps.size(), pointsDetected));
         }
     }
 
     private void updateUI() {
         MapDrawing.drawLap(googleMap, laps.get(currentLapIndex).getLocationData(), polylines, markers);
         textViewLapTime.setText(String.format("Lap time: %s", formatLapTime(laps.get(currentLapIndex).getLapTime())));
-        textViewLaps.setText(String.format("Total laps done: %d", laps.size()));
+        textViewLaps.setText(String.format("Laps detected: %d (%d points)", laps.size(), pointsDetected));
         textCurrentLap.setText(String.format("Viewing lap: %d", currentLapIndex + 1));
     }
 

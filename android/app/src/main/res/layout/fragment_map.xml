@@ -45,6 +45,14 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/textViewLaps" />
 
+    <TextView
+        android:id="@+id/textPointsDetected"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/textCurrentLap" />
+
     <Button
         android:id="@+id/buttonNext"
         android:layout_width="wrap_content"
