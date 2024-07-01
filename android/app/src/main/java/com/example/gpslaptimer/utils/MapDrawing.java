@@ -23,28 +23,31 @@ public class MapDrawing {
                 .color(Color.RED)
                 .width(5);
         googleMap.addPolyline(polylineOptions);
-
     }
 
-    public static void drawLap(GoogleMap googleMap, List<LocationData> lap, List<Polyline> polylines, List<Marker> markers) {
+    public static void drawLap(GoogleMap googleMap, List<LocationData> lap, List<Polyline> polylines, List<Marker> markers, double minSpeed, double maxSpeed) {
         removePolylines(polylines);
         removeMarkers(markers);
         addMarker(googleMap, lap.get(0).getCoordinate(), "Start", markers);
         addMarker(googleMap, lap.get(lap.size() - 1).getCoordinate(), "Finish", markers);
 
-        PolylineOptions polylineOptions = new PolylineOptions();
-        for (LocationData data : lap) {
-            polylineOptions.add(data.getCoordinate());
-        }
-        polylineOptions.color(getRandomColor()).width(5);
+        for (int i = 0; i < lap.size() - 1; i++) {
+            LocationData start = lap.get(i);
+            LocationData end = lap.get(i + 1);
 
-        Polyline polyline = googleMap.addPolyline(polylineOptions);
-        polylines.add(polyline);
+            PolylineOptions polylineOptions = new PolylineOptions()
+                    .add(start.getCoordinate())
+                    .add(end.getCoordinate())
+                    .width(5)
+                    .color(getColorForSpeed(start.getSpeed(), minSpeed, maxSpeed));
+
+            Polyline polyline = googleMap.addPolyline(polylineOptions);
+            polylines.add(polyline);
+        }
     }
 
     public static void drawAllCoordinates(GoogleMap googleMap, List<LocationData> locationData, List<Polyline> polylines) {
         removePolylines(polylines);
-
 
         PolylineOptions polylineOptions = new PolylineOptions();
         for (LocationData data : locationData) {
@@ -83,5 +86,17 @@ public class MapDrawing {
     private static int getRandomColor() {
         Random rnd = new Random();
         return Color.argb(255, rnd.nextInt(256), rnd.nextInt(256), rnd.nextInt(256));
+    }
+
+    private static int getColorForSpeed(double speed, double minSpeed, double maxSpeed) {
+        speed = Math.max(minSpeed, Math.min(speed, maxSpeed));
+
+        double normalizedSpeed = (speed - minSpeed) / (maxSpeed - minSpeed);
+
+        float hue = (float) (normalizedSpeed * 120); // 0 = red, 120 = green
+        float saturation = 1f;
+        float value = 1f;
+
+        return Color.HSVToColor(new float[]{hue, saturation, value});
     }
 }

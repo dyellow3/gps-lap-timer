@@ -52,10 +52,11 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     private TextView textViewLapTime;
     private TextView textViewLaps;
     private TextView textCurrentLap;
-    private TextView textPointsDetected;
     private int pointsDetected;
     private double minLon, maxLon;
     private double minLat, maxLat;
+    private double minSpeed = Double.POSITIVE_INFINITY;
+    private double maxSpeed = Double.NEGATIVE_INFINITY;
 
     public static MapFragment newInstance() {
         return new MapFragment();
@@ -69,7 +70,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         textViewLapTime = rootView.findViewById(R.id.textViewLapTime);
         textViewLaps = rootView.findViewById(R.id.textViewLaps);
         textCurrentLap = rootView.findViewById(R.id.textCurrentLap);
-        textPointsDetected = rootView.findViewById(R.id.textPointsDetected);
 
         mapViewModel.getFileName().observe(getViewLifecycleOwner(), newFileName -> {
             fileName = newFileName;
@@ -129,6 +129,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                 if (parts.length >= 2) {
                     double latitude = Double.parseDouble(parts[0]);
                     double longitude = Double.parseDouble(parts[1]);
+                    double speed = parts.length == 3 ? Double.parseDouble(parts[2]) : 0;
 
                     latitudes.add(latitude);
                     longitudes.add(longitude);
@@ -138,7 +139,9 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                     minLat = Math.min(minLat, latitude);
                     maxLat = Math.max(maxLat, latitude);
 
-                    double speed = parts.length == 3 ? Double.parseDouble(parts[2]) : 0;
+                    minSpeed = Math.min(minSpeed, speed);
+                    maxSpeed = Math.max(maxSpeed, speed);
+
                     LocationData curr = new LocationData(new LatLng(latitude, longitude), speed, 1);
                     pointsDetected++;
 
@@ -185,7 +188,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     }
 
     private void updateUI() {
-        MapDrawing.drawLap(googleMap, laps.get(currentLapIndex).getLocationData(), polylines, markers);
+        MapDrawing.drawLap(googleMap, laps.get(currentLapIndex).getLocationData(), polylines, markers, minSpeed, maxSpeed);
         textViewLapTime.setText(String.format("Lap time: %s", formatLapTime(laps.get(currentLapIndex).getLapTime())));
         textViewLaps.setText(String.format("Laps detected: %d (%d points)", laps.size(), pointsDetected));
         textCurrentLap.setText(String.format("Viewing lap: %d", currentLapIndex + 1));
