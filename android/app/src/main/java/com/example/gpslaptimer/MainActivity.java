@@ -20,6 +20,8 @@ import com.example.gpslaptimer.ui.history.HistoryFragment;
 import com.example.gpslaptimer.ui.connect.ConnectFragment;
 import com.example.gpslaptimer.ui.connect.ConnectViewModel;
 import com.example.gpslaptimer.ui.map.MapFragment;
+import com.example.gpslaptimer.ui.settings.SettingsFragment;
+import com.example.gpslaptimer.ui.settings.SettingsViewModel;
 
 public class MainActivity extends AppCompatActivity {
     ActivityMainBinding binding;
@@ -54,6 +56,9 @@ public class MainActivity extends AppCompatActivity {
                     Log.d("MainActivity", "Loading HistoryFragment");
                     replaceFragment(new HistoryFragment());
                     break;
+                case R.id.settings:
+                    Log.d("MainActivity", "Loading SettingsFragment");
+                    replaceFragment(new SettingsFragment());
             }
             return true;
         });

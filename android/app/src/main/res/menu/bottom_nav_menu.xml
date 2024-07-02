@@ -10,4 +10,7 @@
     <item android:title="History"
         android:icon="@drawable/baseline_access_time_24"
         android:id="@+id/history"/>
+    <item android:title="Settings"
+        android:icon="@drawable/baseline_settings_24"
+        android:id="@+id/settings"/>
 </menu>

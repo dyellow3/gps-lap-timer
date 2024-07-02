@@ -3,10 +3,13 @@ package com.example.gpslaptimer.utils;
 import android.util.Log;
 import android.util.Pair;
 
+import androidx.lifecycle.ViewModelProvider;
+
 import com.example.gpslaptimer.models.Grid;
 import com.example.gpslaptimer.models.GridCell;
 import com.example.gpslaptimer.models.Lap;
 import com.example.gpslaptimer.models.LocationData;
+import com.example.gpslaptimer.ui.settings.SettingsViewModel;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Polyline;
@@ -15,12 +18,12 @@ import java.util.ArrayList;
 import java.util.List;
 public class LapDetection {
     private static final String TAG = "LapDetectionUtil";
-    private static final double GPS_HZ = 1; // Using Neo-6m
-    private static final double GRID_SIZE = 1.0;
-    private static final double DIRECTION_TOLERANCE = Math.toRadians(45);
+    //private static final double GPS_HZ = 1; // Using Neo-6m
+    //private static final double GRID_SIZE = 1.0;
+    //private static final double DIRECTION_TOLERANCE = Math.toRadians(45);
 
-    public static List<Lap> getLaps(List<LocationData> locationData, GoogleMap googleMap, List<Polyline> polylines, List<Double> gridBounds, List<Double> longitudes, List<Double> latitudes) {
-        List<LatLng> finishLine = getFinishLine(locationData, gridBounds, 8.0);
+    public static List<Lap> getLaps(List<LocationData> locationData, GoogleMap googleMap, List<Polyline> polylines, List<Double> gridBounds, SettingsViewModel settingsViewModel) {
+        List<LatLng> finishLine = getFinishLine(locationData, gridBounds,settingsViewModel);
 
         if(finishLine != null) {
             MapDrawing.drawLine(googleMap, finishLine);
@@ -39,7 +42,7 @@ public class LapDetection {
 
                 if (intersectionPoint != null && i - startIndex > 2) {
                     List<LocationData> lap = new ArrayList<>(locationData.subList(startIndex, i + 1));
-                    Pair<Double, Double> lapTime = getLapTime(lap, finishLineStartPoint, finishLineEndPoint);
+                    Pair<Double, Double> lapTime = getLapTime(lap, finishLineStartPoint, finishLineEndPoint, settingsViewModel);
                     laps.add(new Lap(lap, lapTime.first + carryOverTime));
                     carryOverTime = lapTime.second;
                     startIndex = i;
@@ -71,7 +74,11 @@ public class LapDetection {
     }
 
 
-    public static List<LatLng> getFinishLine(List<LocationData> locationData, List<Double> gridBounds, double lineLength) {
+    public static List<LatLng> getFinishLine(List<LocationData> locationData, List<Double> gridBounds, SettingsViewModel settingsViewModel) {
+        double LINE_LENGTH = settingsViewModel.getSetting("finish_length").getValue();
+        double GRID_SIZE = settingsViewModel.getSetting("grid_size").getValue();
+        double DIRECTION_TOLERANCE = Math.toRadians(settingsViewModel.getSetting("direction_tolerance").getValue());
+
         Grid grid = Grid.createGrid(locationData, gridBounds, GRID_SIZE, DIRECTION_TOLERANCE);
 
         if(grid != null) {
@@ -83,7 +90,7 @@ public class LapDetection {
                 // Perpendicular vector
                 double perpendicularLat = -directionVector.longitude;
                 double perpendicularLng = directionVector.latitude;
-                double distanceInDegrees = lineLength / 111111; // Approximate conversion factor: 1 degree ≈ 111,111 meters
+                double distanceInDegrees = LINE_LENGTH / 111111; // Approximate conversion factor: 1 degree ≈ 111,111 meters
 
                 // End points of the perpendicular line
                 double startLat = centerLatLng.latitude - (perpendicularLat * distanceInDegrees / 2);
@@ -114,7 +121,8 @@ public class LapDetection {
         return new LatLng(sumLat / points.size(), sumLng / points.size());
     }
 
-    public static Pair<Double, Double> getLapTime(List<LocationData> lap, LatLng finishLineStartPoint, LatLng finishLineEndPoint) {
+    public static Pair<Double, Double> getLapTime(List<LocationData> lap, LatLng finishLineStartPoint, LatLng finishLineEndPoint, SettingsViewModel settingsViewModel) {
+        double GPS_HZ = settingsViewModel.getSetting("gps_hz").getValue();
         double lapTime = 0;
         double carryOverTime = 0;
 
