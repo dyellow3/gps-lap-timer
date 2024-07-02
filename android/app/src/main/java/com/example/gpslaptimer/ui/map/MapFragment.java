@@ -14,6 +14,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
+import com.example.gpslaptimer.ui.settings.SettingsViewModel;
 import com.example.gpslaptimer.utils.LapDetection;
 import com.example.gpslaptimer.utils.MapDrawing;
 import com.example.gpslaptimer.R;
@@ -38,8 +39,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     private static final String TAG = "MapFragment";
     private SupportMapFragment mapFragment;
     private List<LocationData> locationData = new ArrayList<>();
-    private List<Double> longitudes = new ArrayList<>();
-    private List<Double> latitudes = new ArrayList<>();
     private List<Double> gridBounds = new ArrayList<>();
     private GoogleMap googleMap;
     private List<Polyline> polylines = new ArrayList<>();
@@ -115,8 +114,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
 
         pointsDetected = 0;
         locationData.clear();
-        latitudes.clear();
-        longitudes.clear();
         gridBounds.clear();
 
         File directory = getContext().getExternalFilesDir(null);
@@ -130,9 +127,6 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                     double latitude = Double.parseDouble(parts[0]);
                     double longitude = Double.parseDouble(parts[1]);
                     double speed = parts.length == 3 ? Double.parseDouble(parts[2]) : 0;
-
-                    latitudes.add(latitude);
-                    longitudes.add(longitude);
 
                     minLon = Math.min(minLon, longitude);
                     maxLon = Math.max(maxLon, longitude);
@@ -172,7 +166,8 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
 
     private void processLocationData() {
         long startTime = System.nanoTime();
-        laps = LapDetection.getLaps(locationData, googleMap, polylines, gridBounds, longitudes, latitudes);
+        SettingsViewModel settingsViewModel = new ViewModelProvider(requireActivity()).get(SettingsViewModel.class);
+        laps = LapDetection.getLaps(locationData, googleMap, polylines, gridBounds, settingsViewModel);
         long endTime = System.nanoTime();
         Log.d(TAG, "Runtime: " + (endTime - startTime) / 1_000_000 + " ms");
         if (!laps.isEmpty()) {
