@@ -1,12 +1,9 @@
 package com.example.gpslaptimer.ui.settings;
 
-import android.app.AlertDialog;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.fragment.app.Fragment;
@@ -20,6 +17,7 @@ import java.util.Map;
 
 public class SettingsFragment extends Fragment {
     private SettingsViewModel settingsViewModel;
+
     private Map<String, Slider> sliders = new HashMap<>();
     private Map<String, TextView> textViews = new HashMap<>();
 
@@ -38,12 +36,10 @@ public class SettingsFragment extends Fragment {
 
     private void initializeViews(View rootView) {
         sliders.put("grid_size", rootView.findViewById(R.id.sliderGridSize));
-        sliders.put("gps_hz", rootView.findViewById(R.id.sliderGpsHz));
         sliders.put("direction_tolerance", rootView.findViewById(R.id.sliderDirectionTolerance));
         sliders.put("finish_length", rootView.findViewById(R.id.sliderFinishLength));
 
         textViews.put("grid_size", rootView.findViewById(R.id.textViewGridSize));
-        textViews.put("gps_hz", rootView.findViewById(R.id.textViewGpsHz));
         textViews.put("direction_tolerance", rootView.findViewById(R.id.textViewDirectionTolerance));
         textViews.put("finish_length", rootView.findViewById(R.id.textViewFinishLength));
     }
@@ -75,9 +71,6 @@ public class SettingsFragment extends Fragment {
         switch (key) {
             case "grid_size":
                 text = String.format("Grid Size: %.2f meters", value);
-                break;
-            case "gps_hz":
-                text = String.format("GPS Hz: %.2f", value);
                 break;
             case "direction_tolerance":
                 text = String.format("Direction Tolerance: %.2f degrees", value);

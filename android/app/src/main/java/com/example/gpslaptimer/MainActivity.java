@@ -17,8 +17,6 @@ import androidx.lifecycle.ViewModelProvider;
 import com.example.gpslaptimer.databinding.ActivityMainBinding;
 import com.example.gpslaptimer.ui.add.AddFragment;
 import com.example.gpslaptimer.ui.history.HistoryFragment;
-import com.example.gpslaptimer.ui.connect.ConnectFragment;
-import com.example.gpslaptimer.ui.connect.ConnectViewModel;
 import com.example.gpslaptimer.ui.map.MapFragment;
 import com.example.gpslaptimer.ui.settings.SettingsFragment;
 import com.example.gpslaptimer.ui.settings.SettingsViewModel;
@@ -35,19 +33,10 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        replaceFragment(new ConnectFragment());
-
-        connectStatus = findViewById(R.id.connectStatus);
-
-        ConnectViewModel connectViewModel = new ViewModelProvider(this).get(ConnectViewModel.class);
-        connectViewModel.getConnectStatus().observe(this, status -> connectStatus.setText(status));
+        replaceFragment(new AddFragment());
 
         binding.bottomNavigationView.setOnItemSelectedListener(item -> {
             switch(item.getItemId()) {
-                case R.id.pair:
-                    Log.d("MainActivity", "Loading ConnectFragment");
-                    replaceFragment(new ConnectFragment());
-                    break;
                 case R.id.add:
                     Log.d("MainActivity", "Loading AddFragment");
                     replaceFragment(new AddFragment());

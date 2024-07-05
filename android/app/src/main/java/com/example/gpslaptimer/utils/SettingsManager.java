@@ -24,7 +24,6 @@ public class SettingsManager {
     static {
         Map<String, String> tempMap = new HashMap<>();
         tempMap.put("grid_size", "1.0");
-        tempMap.put("gps_hz", "1.0");
         tempMap.put("direction_tolerance", "15");
         tempMap.put("finish_length", "8");
         DEFAULT_SETTINGS = Collections.unmodifiableMap(tempMap);

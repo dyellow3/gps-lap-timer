@@ -1,18 +1,20 @@
 package com.example.gpslaptimer.models;
 
+import android.location.Location;
+
 import java.util.List;
 
 public class Lap {
-    private List<LocationData> locationData;
+    private List<Location> locations;
     private double lapTime;
 
-    public Lap(List<LocationData> locationData, double lapTime) {
-        this.locationData = locationData;
+    public Lap(List<Location> locations, double lapTime) {
+        this.locations = locations;
         this.lapTime = lapTime;
     }
 
-    public List<LocationData> getLocationData() {
-        return locationData;
+    public List<Location> getLocationData() {
+        return locations;
     }
 
     public double getLapTime() {

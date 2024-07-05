@@ -1,9 +1,15 @@
 package com.example.gpslaptimer.ui.add;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.app.ActivityCompat;
 import androidx.lifecycle.ViewModelProvider;
 
-import android.bluetooth.BluetoothSocket;
+import android.Manifest;
 import android.content.Context;
+import android.content.IntentSender;
+import android.content.pm.PackageManager;
+import android.location.Location;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -12,152 +18,212 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.os.Looper;
 import android.os.PowerManager;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.Button;
 
 import com.example.gpslaptimer.MainActivity;
 import com.example.gpslaptimer.R;
 import com.example.gpslaptimer.adapters.ConsoleLogAdapter;
-import com.example.gpslaptimer.ui.connect.ConnectViewModel;
-import com.example.gpslaptimer.utils.LapDetection;
-import com.example.gpslaptimer.models.LocationData;
 import com.example.gpslaptimer.ui.map.MapViewModel;
-import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.common.api.ResolvableApiException;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.Granularity;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.LocationSettingsRequest;
+import com.google.android.gms.location.LocationSettingsResponse;
+import com.google.android.gms.location.Priority;
+import com.google.android.gms.location.SettingsClient;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
 public class AddFragment extends Fragment {
-    private MapViewModel mapViewModel;
     private static final String TAG = "AddFragment";
-    private ConnectViewModel connectViewModel;
-    Button buttonStartStop;
-    private boolean isTracking = false;
-    private List<LocationData> coordinates = new ArrayList<>();
-    String fileName = "";
-    RecyclerView recyclerView;
+    private static final int REQUEST_CHECK_SETTINGS = 1001;
+
+    private MapViewModel mapViewModel;
+
+    private Button buttonStartStop;
+    private RecyclerView recyclerView;
+
     private ConsoleLogAdapter adapter;
-    private List<String> logMessages;
+
+    private List<Location> locations = new ArrayList<>();
+    private List<String> logMessages = new ArrayList<>();
+    private String fileName = "";
+
+    private FusedLocationProviderClient fusedLocationProviderClient;
+    private LocationRequest locationRequest;
+    private LocationSettingsRequest.Builder builder;
+    private LocationCallback locationCallback;
+    private ActivityResultLauncher<String[]> locationPermissionRequest;
+
+    private boolean isTracking = false;
+    private Long initialElapsedRealtimeNanos = null;
+
     private PowerManager.WakeLock wakeLock;
-    private LocationData prev;
 
-    public static AddFragment newInstance() {
-        return new AddFragment();
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(requireActivity());
+        createLocationCallback();
+        createLocationRequest();
     }
-
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_add, container, false);
 
-        connectViewModel = new ViewModelProvider(requireActivity()).get(ConnectViewModel.class);
-        mapViewModel = new ViewModelProvider(requireActivity()).get(MapViewModel.class);
-        buttonStartStop = rootView.findViewById(R.id.buttonStartStop);
+        setupLocationPermissionRequest();
 
-        logMessages = new ArrayList<>();
+        mapViewModel = new ViewModelProvider(requireActivity()).get(MapViewModel.class);
+
+        buttonStartStop = rootView.findViewById(R.id.buttonStartStop);
+        buttonStartStop.setText("Start Session");
+        buttonStartStop.setOnClickListener(v -> {
+            if(!isTracking) {
+                checkLocationSettings();
+            } else {
+                stopLocationUpdates();
+                releaseWakeLock();
+                fileName = getUniqueFileName();
+                if(saveCoordinatesToFile(locations, fileName)) {
+                    mapViewModel.setFileName(fileName);
+                    ((MainActivity) getActivity()).onMapFragmentRequest();
+                }
+            }
+        });
+
         recyclerView = rootView.findViewById(R.id.recyclerViewConsoleLog);
+        logMessages = new ArrayList<>();
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new ConsoleLogAdapter(logMessages);
         recyclerView.setAdapter(adapter);
 
-        connectViewModel.getConnectionStatus().observe(getViewLifecycleOwner(), isConnected -> {
-            if (isConnected != null) {
-                buttonStartStop.setEnabled(isConnected);
-                updateButtonStartStopText(isConnected, isTracking);
-                Log.d(TAG, "Connection Status: " + isConnected);
-                if(isConnected) {
-                    connectViewModel.getReceivedMessage().observe(getViewLifecycleOwner(), message -> {
-                        // Processing received message
-                        if (!message.isEmpty()) {
-                            logMessage("Received Message: " + message);
-                        }
-
-                        if (message.contains("Starting GPS")) {
-                            isTracking = true;
-                            updateButtonStartStopText(isConnected, isTracking);
-                            acquireWakeLock();
-                            coordinates.clear();
-                            prev = null;
-                        } else if (message.contains("Stopping GPS") && isTracking) {
-                            isTracking = false;
-                            updateButtonStartStopText(isConnected, isTracking);
-                            releaseWakeLock();
-                            fileName = getUniqueFileName();
-                            if(saveCoordinatesToFile(coordinates, fileName)) {
-                                mapViewModel.setFileName(fileName);
-                                ((MainActivity) getActivity()).onMapFragmentRequest();
-                            }
-
-                        } else if (isTracking) {
-                            String[] parts = message.split(",");
-                            if(parts.length == 3) {
-                                double latitude = Double.parseDouble(parts[0].trim());
-                                double longitude = Double.parseDouble(parts[1].trim());
-                                double speed = Double.parseDouble(parts[2].trim());
-                                LocationData curr = new LocationData(new LatLng(latitude, longitude), speed, 1);
-
-                                if(prev != null) {
-                                    // Distance between two consecutive point should be greater than 1m - should help to prevent clustering
-                                    double distance = LapDetection.calculateDistance(curr.getCoordinate(), prev.getCoordinate());
-                                    if(distance > 1) {
-                                        coordinates.add(curr);
-                                        prev = curr;
-                                    } else {
-                                        prev.setWeight(prev.getWeight() + 1);
-                                    }
-                                } else {
-                                    coordinates.add(curr);
-                                    prev = curr;
-                                }
-                            }
-                        }
-                    });
-                }
-            }
-        });
-
-        buttonStartStop.setOnClickListener(v -> {
-            BluetoothSocket bluetoothSocket = connectViewModel.getBluetoothSocket().getValue();
-            if(bluetoothSocket != null && bluetoothSocket.isConnected()) {
-                try {
-                    OutputStream outputStream = bluetoothSocket.getOutputStream();
-                    if(!isTracking) {
-                        outputStream.write("start;".getBytes());
-                        logMessage("Sent 'start; command to the Bluetooth device");
-                    } else {
-                        outputStream.write("stop;".getBytes());
-                        logMessage("Sent 'stop; command to the Bluetooth device");
-                    }
-                    outputStream.flush();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        });
-
         return rootView;
-    }
-
-    @Override
-    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
         releaseWakeLock();
+        keepScreenOn(false);
+    }
+
+    private void setupLocationPermissionRequest() {
+        locationPermissionRequest = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+            Boolean fineLocationGranted = result.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false);
+            Boolean coarseLocationGranted = result.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION,false);
+            if (fineLocationGranted != null && fineLocationGranted) {
+                startLocationUpdates();
+            } else {
+                logMessage("Location permission denied");
+            }
+        });
+    }
+
+    private void requestLocationPermission() {
+        locationPermissionRequest.launch(new String[] {
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+        });
+    }
+
+    protected void createLocationRequest() {
+        locationRequest = new LocationRequest.Builder(0)
+                .setGranularity(Granularity.GRANULARITY_FINE)
+                .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+                .setMinUpdateDistanceMeters(1)
+                .setIntervalMillis(0)
+                .setMinUpdateIntervalMillis(0)
+                .build();
+        builder = new LocationSettingsRequest.Builder()
+                .addLocationRequest(locationRequest);
+    }
+
+    private void createLocationCallback() {
+        locationCallback = new LocationCallback() {
+            @Override
+            public void onLocationResult(@NonNull LocationResult locationResult) {
+                for (Location location : locationResult.getLocations()) {
+                    locations.add(location);
+                    if(initialElapsedRealtimeNanos == null) {
+                        initialElapsedRealtimeNanos = location.getElapsedRealtimeNanos();
+                    }
+                    double elapsedTime = (location.getElapsedRealtimeNanos() - initialElapsedRealtimeNanos) / 1000000000.0;
+                    logMessage(location.getLatitude() + "," + location.getLongitude() + "," + location.getSpeed() + "," + String.format("%.3f", elapsedTime));
+                }
+            }
+        };
+    }
+
+    private void checkLocationSettings() {
+        SettingsClient client = LocationServices.getSettingsClient(requireActivity());
+        Task<LocationSettingsResponse> task = client.checkLocationSettings(builder.build());
+
+        task.addOnSuccessListener(requireActivity(), new OnSuccessListener<LocationSettingsResponse>() {
+
+            @Override
+            public void onSuccess(LocationSettingsResponse locationSettingsResponse) {
+                startLocationUpdates();
+                acquireWakeLock();
+            }
+        });
+
+        task.addOnFailureListener(requireActivity(), new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception e) {
+                if (e instanceof ResolvableApiException) {
+                    // Location settings not satisfied
+                    try {
+                        // Show dialog
+                        ResolvableApiException resolvable = (ResolvableApiException) e;
+                        resolvable.startResolutionForResult(requireActivity(), REQUEST_CHECK_SETTINGS);
+                    } catch (IntentSender.SendIntentException sendEx) {
+                        Log.e(TAG, "Error showing location settings resolution dialog", sendEx);
+                    }
+                }
+            }
+        });
+    }
+
+    private void startLocationUpdates() {
+        if (ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            requestLocationPermission();
+            return;
+        }
+        fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
+        isTracking = true;
+        buttonStartStop.setText("Stop Session");
+        keepScreenOn(true);
+        logMessage("Location updates started");
+    }
+
+    private void stopLocationUpdates() {
+        fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+        isTracking = false;
+        buttonStartStop.setText("Start");
+        logMessage("Location updates stopped");
+        keepScreenOn(false);
     }
 
     private void acquireWakeLock() {
@@ -170,7 +236,19 @@ public class AddFragment extends Fragment {
         if (wakeLock != null && wakeLock.isHeld()) {
             wakeLock.release();
         }
+
     }
+    private void keepScreenOn(boolean on) {
+        if (getActivity() != null) {
+            if (on) {
+                getActivity().getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            } else {
+                getActivity().getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            }
+        }
+    }
+
+
 
     private void logMessage(String message) {
         adapter.addMessage(message);
@@ -178,13 +256,14 @@ public class AddFragment extends Fragment {
         Log.d(TAG, message);
     }
 
-    private boolean saveCoordinatesToFile(List<LocationData> coordinates, String fileName) {
+    private boolean saveCoordinatesToFile(List<Location> coordinates, String fileName) {
         File directory = getContext().getExternalFilesDir(null);
         File file = new File(directory, fileName);
         int count = 0;
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-            for (LocationData locationData : coordinates) {
-                writer.write(locationData.getCoordinate().latitude + "," + locationData.getCoordinate().longitude + "," + locationData.getSpeed());
+            for (Location location : coordinates) {
+                double elapsedTime = (location.getElapsedRealtimeNanos() - initialElapsedRealtimeNanos) / 1000000000.0;
+                writer.write(location.getLatitude() + "," + location.getLongitude() + "," + location.getSpeed() + "," + String.format("%.3f", elapsedTime));
                 writer.newLine();
                 count++;
             }
@@ -217,16 +296,6 @@ public class AddFragment extends Fragment {
             index++;
         }
         return file.getName();
-    }
-
-    private void updateButtonStartStopText(boolean isConnected, boolean isTracking) {
-        if (!isConnected) {
-            buttonStartStop.setText("Not Connected");
-        } else if (!isTracking) {
-            buttonStartStop.setText("Start");
-        } else {
-            buttonStartStop.setText("Stop");
-        }
     }
 
 }

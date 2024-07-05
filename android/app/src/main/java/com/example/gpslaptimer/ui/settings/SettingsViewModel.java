@@ -15,7 +15,7 @@ public class SettingsViewModel extends AndroidViewModel {
     private final SettingsManager settingsManager;
     private final Map<String, MutableLiveData<Float>> settingsMap = new HashMap<>();
 
-    private static final String[] SETTING_KEYS = {"grid_size", "gps_hz", "direction_tolerance", "finish_length"};
+    private static final String[] SETTING_KEYS = {"grid_size", "direction_tolerance", "finish_length"};
 
     public SettingsViewModel(Application application) {
         super(application);

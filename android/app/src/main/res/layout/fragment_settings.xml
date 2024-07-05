@@ -44,29 +44,6 @@
         </LinearLayout>
 
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginBottom="24dp">
-
-            <TextView
-                android:id="@+id/textViewGpsHz"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textStyle="bold"
-                android:textSize="16sp"
-                android:layout_marginBottom="4dp"
-                android:layout_marginTop="4dp"/>
-
-            <com.google.android.material.slider.Slider
-                android:id="@+id/sliderGpsHz"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:valueFrom="1"
-                android:valueTo="10"
-                android:stepSize="1" />
-        </LinearLayout>
 
 
         <LinearLayout

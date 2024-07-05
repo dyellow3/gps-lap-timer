@@ -1,5 +1,7 @@
 package com.example.gpslaptimer.models;
 
+import android.location.Location;
+
 import com.google.android.gms.maps.model.LatLng;
 
 import java.util.List;
@@ -28,7 +30,7 @@ public class Grid {
         return maxCountCell;
     }
 
-    public static Grid createGrid(List<LocationData> locationData, List<Double> gridBounds, double squareSize, double directionTolerance) {
+    public static Grid createGrid(List<Location> locations, List<Double> gridBounds, double squareSize, double directionTolerance) {
         double minLon = gridBounds.get(0), maxLon = gridBounds.get(1);
         double minLat = gridBounds.get(2), maxLat = gridBounds.get(3);
 
@@ -41,24 +43,23 @@ public class Grid {
 
         Grid grid = new Grid(minLon, maxLon, minLat, maxLat, squareSize);
 
-        for (int i = 0; i < locationData.size() - 1; i++) {
-            LatLng curr = locationData.get(i).getCoordinate();
-            LatLng next = locationData.get(i + 1).getCoordinate();
+        for (int i = 0; i < locations.size() - 1; i++) {
+            Location curr = locations.get(i);
+            Location next = locations.get(i + 1);
 
-            int x = (int) (degreesToMeters(curr.longitude - minLon) / squareSize);
-            int y = (int) (degreesToMeters(curr.latitude - minLat) / squareSize);
+            int x = (int) (degreesToMeters(curr.getLongitude() - minLon) / squareSize);
+            int y = (int) (degreesToMeters(curr.getLatitude() - minLat) / squareSize);
 
-            LatLng directionVector = new LatLng(next.latitude - curr.latitude, next.longitude - curr.longitude);
+            LatLng directionVector = new LatLng(next.getLatitude() - curr.getLatitude(), next.getLongitude() - curr.getLongitude());
             double magnitude = Math.sqrt(directionVector.latitude * directionVector.latitude + directionVector.longitude * directionVector.longitude);
             directionVector = new LatLng(directionVector.latitude / magnitude, directionVector.longitude / magnitude);
 
             if (grid.cells[y][x] == null) {
                 grid.cells[y][x] = new GridCell();
                 grid.cells[y][x].setDirectionVector(directionVector);
-                grid.cells[y][x].addPoint(locationData.get(i));
+                grid.cells[y][x].addPoint(curr);
             } else if (dotProduct(directionVector, grid.cells[y][x].getDirectionVector()) >= directionTolerance)  {
-                grid.cells[y][x].addPoint(locationData.get(i));
-
+                grid.cells[y][x].addPoint(curr);
                 if(grid.maxCountCell == null || grid.cells[y][x].getCount() > grid.maxCountCell.getCount()) {
                     grid.maxCountCell = grid.cells[y][x];
                 }

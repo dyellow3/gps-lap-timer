@@ -25,35 +25,31 @@ import java.util.List;
 
 
 public class HistoryFragment extends Fragment {
+    private final String TAG = "HistoryFragment";
+
     private RecyclerView recyclerView;
     private LapAdapter adapter;
     MapViewModel mapViewModel;
     private List<String> lapFiles;
-    private final String TAG = "HistoryFragment";
 
     public static HistoryFragment newInstance() {
         return new HistoryFragment();
     }
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-    }
-
-    @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_history, container, false);
+
         mapViewModel = new ViewModelProvider(requireActivity()).get(MapViewModel.class);
+
         recyclerView = rootView.findViewById(R.id.recyclerViewLaps);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-
         lapFiles = readLapFiles();
         adapter = new LapAdapter(lapFiles, new LapAdapter.OnItemClickListener() {
             @Override
             public void onItemClick(String lapFileName) {
                 mapViewModel.setFileName(lapFileName);
                 ((MainActivity) getActivity()).onMapFragmentRequest();
-                Log.d(TAG, "Clicked " + lapFileName);
             }
 
             @Override
@@ -74,7 +70,6 @@ public class HistoryFragment extends Fragment {
                     deleteFile(lapFileName);
                     lapFiles.remove(position);
                     adapter.notifyItemRemoved(position);
-                    Log.d(TAG, "Deleted " + lapFileName);
                     dialog.dismiss();
                 });
 

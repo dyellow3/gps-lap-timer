@@ -1,8 +1,8 @@
 package com.example.gpslaptimer.utils;
 
 import android.graphics.Color;
+import android.location.Location;
 
-import com.example.gpslaptimer.models.LocationData;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
@@ -25,19 +25,16 @@ public class MapDrawing {
         googleMap.addPolyline(polylineOptions);
     }
 
-    public static void drawLap(GoogleMap googleMap, List<LocationData> lap, List<Polyline> polylines, List<Marker> markers, double minSpeed, double maxSpeed) {
+    public static void drawLap(GoogleMap googleMap, List<Location> lap, List<Polyline> polylines, double minSpeed, double maxSpeed) {
         removePolylines(polylines);
-        removeMarkers(markers);
-        addMarker(googleMap, lap.get(0).getCoordinate(), "Start", markers);
-        addMarker(googleMap, lap.get(lap.size() - 1).getCoordinate(), "Finish", markers);
 
         for (int i = 0; i < lap.size() - 1; i++) {
-            LocationData start = lap.get(i);
-            LocationData end = lap.get(i + 1);
+            Location start = lap.get(i);
+            Location end = lap.get(i + 1);
 
             PolylineOptions polylineOptions = new PolylineOptions()
-                    .add(start.getCoordinate())
-                    .add(end.getCoordinate())
+                    .add(new LatLng(start.getLatitude(), start.getLongitude()))
+                    .add(new LatLng(end.getLatitude(), end.getLongitude()))
                     .width(5)
                     .color(getColorForSpeed(start.getSpeed(), minSpeed, maxSpeed));
 
@@ -46,19 +43,19 @@ public class MapDrawing {
         }
     }
 
-    public static void drawAllCoordinates(GoogleMap googleMap, List<LocationData> locationData, List<Polyline> polylines) {
+    public static void drawAllCoordinates(GoogleMap googleMap, List<Location> locations, List<Polyline> polylines, double minSpeed, double maxSpeed) {
         removePolylines(polylines);
 
         PolylineOptions polylineOptions = new PolylineOptions();
-        for (LocationData data : locationData) {
-            polylineOptions.add(data.getCoordinate());
+        for (Location location : locations) {
+            polylineOptions.add(new LatLng(location.getLatitude(), location.getLongitude()));
         }
         polylineOptions.color(getRandomColor()).width(5);
 
         Polyline polyline = googleMap.addPolyline(polylineOptions);
         polylines.add(polyline);
 
-        googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(locationData.get((0)).getCoordinate().latitude, locationData.get((0)).getCoordinate().longitude), 15));
+        googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(locations.get((0)).getLatitude(), locations.get((0)).getLongitude()), 15));
     }
 
     private static void addMarker(GoogleMap googleMap, LatLng position, String markerName, List<Marker> markers) {
