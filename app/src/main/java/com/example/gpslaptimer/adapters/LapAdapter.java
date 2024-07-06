@@ -1,24 +1,27 @@
 package com.example.gpslaptimer.adapters;
 
+import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.gpslaptimer.R;
+import com.example.gpslaptimer.models.Lap;
 
 import java.util.List;
 
 public class LapAdapter extends RecyclerView.Adapter<LapAdapter.LapViewHolder> {
-    private List<String> lapList;
-    private OnItemClickListener itemClickListener;
 
-    public LapAdapter(List<String> lapList, OnItemClickListener itemClickListener) {
-        this.lapList = lapList;
+    private List<Lap> laps;
+    private OnItemClickListener itemClickListener;
+    private int selectedPosition = RecyclerView.NO_POSITION;
+
+    public LapAdapter(List<Lap> laps, OnItemClickListener itemClickListener) {
+        this.laps = laps;
         this.itemClickListener = itemClickListener;
     }
 
@@ -31,42 +34,61 @@ public class LapAdapter extends RecyclerView.Adapter<LapAdapter.LapViewHolder> {
 
     @Override
     public void onBindViewHolder(@NonNull LapViewHolder holder, int position) {
-        String lapFileName = lapList.get(position);
-        holder.bind(lapFileName);
+        Lap lap = laps.get(position);
+        holder.lapNumber.setText(String.valueOf(lap.getLapNumber()));
+        holder.lapTime.setText(formatTime(lap.getLapTime()));
+
+        double variation = lap.getVariation();
+        holder.variation.setText("+" + String.format("%.3f", variation));
+        holder.variation.setTextColor(variation <= 0 ? Color.GREEN : Color.RED);
+
+        if (selectedPosition == position) {
+            holder.itemView.setBackgroundResource(R.drawable.border_selected);
+        } else {
+            holder.itemView.setBackgroundResource(R.drawable.border);
+        }
+
+        holder.bind(String.valueOf(lap.getLapNumber()));
     }
 
     @Override
     public int getItemCount() {
-        return lapList.size();
+        return laps.size();
     }
 
     public class LapViewHolder extends RecyclerView.ViewHolder {
-        private TextView lapTextView;
-        private Button deleteButton;
+        TextView lapNumber;
+        TextView lapTime;
+        TextView variation;
 
         public LapViewHolder(@NonNull View itemView) {
             super(itemView);
-            lapTextView = itemView.findViewById(R.id.textViewLap);
-            deleteButton = itemView.findViewById(R.id.buttonDelete);
+            lapNumber = itemView.findViewById(R.id.textViewLapNumber);
+            lapTime = itemView.findViewById(R.id.textViewLapTime);
+            variation = itemView.findViewById(R.id.textViewGap);
         }
 
-        public void bind(String lapFileName) {
-            lapTextView.setText(lapFileName);
+        public void bind(String lapNumber) {
             itemView.setOnClickListener(v -> {
-                if (itemClickListener != null) {
-                    itemClickListener.onItemClick(lapFileName);
-                }
-            });
-            deleteButton.setOnClickListener(v -> {
-                if (itemClickListener != null) {
-                    itemClickListener.onDeleteClick(lapFileName, getAdapterPosition());
+                if(itemClickListener != null) {
+                    int oldPosition = selectedPosition;
+                    selectedPosition = getAdapterPosition();
+                    notifyItemChanged(oldPosition);
+                    notifyItemChanged(selectedPosition);
+                    itemClickListener.onItemClick(lapNumber);
                 }
             });
         }
+
+    }
+
+    private String formatTime(double timeInSeconds) {
+        int minutes = (int) (timeInSeconds / 60);
+        double seconds = timeInSeconds % 60;
+        return String.format("%d:%06.3f", minutes, seconds);
     }
 
     public interface OnItemClickListener {
-        void onItemClick(String lapFileName);
-        void onDeleteClick(String lapFileName, int position);
+        void onItemClick(String lapNumber);
     }
 }

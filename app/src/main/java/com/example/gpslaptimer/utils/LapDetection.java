@@ -17,8 +17,10 @@ import java.util.List;
 public class LapDetection {
     private static final String TAG = "LapDetectionUtil";
 
-    public static List<Lap> getLaps(List<Location> locations, GoogleMap googleMap, List<Polyline> polylines, List<Double> gridBounds, SettingsViewModel settingsViewModel) {
+    public static Pair<List<Lap>, Lap> getLaps(List<Location> locations, GoogleMap googleMap, List<Double> gridBounds, SettingsViewModel settingsViewModel) {
         List<LatLng> finishLine = getFinishLine(locations, gridBounds, settingsViewModel);
+        Double fastestTime = Double.POSITIVE_INFINITY;
+        Lap fastestLap = null;
 
         if(finishLine != null) {
             MapDrawing.drawLine(googleMap, finishLine);
@@ -30,15 +32,26 @@ public class LapDetection {
             int startIndex = 0;
             double carryOverTime = 0;
 
+            // Loop through each point, looking at if the line between previous and current point intersects finish
             for (int i = 1; i < locations.size(); i++) {
                 LatLng prevPoint = new LatLng(locations.get(i - 1).getLatitude(), locations.get(i - 1).getLongitude());
                 LatLng currPoint = new LatLng(locations.get(i).getLatitude(), locations.get(i).getLongitude());
                 LatLng intersectionPoint = getLineSegmentIntersection(prevPoint, currPoint, finishLineStartPoint, finishLineEndPoint);
 
+                // Intersection detected
                 if (intersectionPoint != null && i - startIndex > 2) {
                     List<Location> lap = new ArrayList<>(locations.subList(startIndex, i + 1));
                     Pair<Double, Double> lapTime = getLapTime(lap, finishLineStartPoint, finishLineEndPoint, settingsViewModel);
-                    laps.add(new Lap(lap, lapTime.first + carryOverTime));
+                    if(startIndex != 0) {
+                        Lap currLap = new Lap(lap, lapTime.first + carryOverTime, laps.size());
+                        if((lapTime.first + carryOverTime) < fastestTime) {
+                            fastestLap = currLap;
+                            fastestTime = lapTime.first + carryOverTime;
+                        }
+                        laps.add(currLap);
+                    } else {
+                        laps.add(new Lap(lap, 0.0, laps.size()));
+                    }
                     carryOverTime = lapTime.second;
                     startIndex = i;
                 }
@@ -51,17 +64,23 @@ public class LapDetection {
                 for(int i = 0; i < finalLap.size(); i++) {
                     finalLapTime += 1;
                 }
-                laps.add(new Lap(finalLap, finalLapTime + carryOverTime));
+                laps.add(new Lap(finalLap, finalLapTime + carryOverTime, laps.size()));
+            }
+
+            // Add variance from fastest to each lap
+            for(int i = 1; i < laps.size() - 1; i++) {
+                Lap curr = laps.get(i);
+                curr.setLapVariation(curr.getLapTime() - fastestTime);
             }
 
             if(laps.isEmpty()) {
                 Log.d(TAG, "Could not detect any laps");
-                return new ArrayList<>();
+                return new Pair<>(new ArrayList<>(), null);
             }
-            return laps;
+            return new Pair<>(laps, fastestLap);
         } else {
             Log.d(TAG, "Could not detect start / finish points");
-            return new ArrayList<>();
+            return new Pair<>(new ArrayList<>(), null);
         }
 
     }

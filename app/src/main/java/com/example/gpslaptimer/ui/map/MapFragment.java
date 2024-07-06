@@ -6,6 +6,7 @@ import android.app.AlertDialog;
 import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
+import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,7 +17,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.gpslaptimer.adapters.LapAdapter;
 import com.example.gpslaptimer.ui.settings.SettingsViewModel;
 import com.example.gpslaptimer.utils.LapDetection;
 import com.example.gpslaptimer.utils.MapDrawing;
@@ -50,20 +54,21 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     private List<Double> gridBounds = new ArrayList<>();
     private List<Polyline> polylines = new ArrayList<>();
     private List<Lap> laps;
+    Lap fastestLap = null;
 
-    private Button prevButton;
-    private Button nextButton;
-    private Button rawDataButton;
-    private TextView textViewLapTime;
-    private TextView textViewLaps;
-    private TextView textCurrentLap;
+    private TextView textViewFastestLapTime;
+    private TextView textViewFastestLap;
+    private TextView textViewLapNumber, textViewLapTime, textViewGap;
 
-    private int currentLapIndex = 0;
+
     private int pointsDetected;
-    private double minLon, maxLon, minLat, maxLat;;
+    private double minLon, maxLon, minLat, maxLat;
+
 
     private double minSpeed = Double.POSITIVE_INFINITY;
     private double maxSpeed = Double.NEGATIVE_INFINITY;
+
+    View rootView;
 
     public static MapFragment newInstance() {
         return new MapFragment();
@@ -71,14 +76,10 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        View rootView = inflater.inflate(R.layout.fragment_map, container, false);
+        rootView = inflater.inflate(R.layout.fragment_map, container, false);
 
-        prevButton = rootView.findViewById(R.id.buttonPrev);
-        nextButton = rootView.findViewById(R.id.buttonNext);
-        rawDataButton = rootView.findViewById(R.id.buttonRawData);
-        textViewLapTime = rootView.findViewById(R.id.textViewLapTime);
-        textViewLaps = rootView.findViewById(R.id.textViewLaps);
-        textCurrentLap = rootView.findViewById(R.id.textCurrentLap);
+        textViewFastestLapTime = rootView.findViewById(R.id.textViewFastestLapTime);
+        textViewFastestLap = rootView.findViewById(R.id.textViewFastestLap);
 
         mapViewModel = new ViewModelProvider(requireActivity()).get(MapViewModel.class);
         mapViewModel.getFileName().observe(getViewLifecycleOwner(), this::readAndStoreCoordinates);
@@ -104,15 +105,25 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
         this.googleMap = googleMap;
-        this.googleMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+        this.googleMap.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
 
         if (!locations.isEmpty()) {
             requireActivity().runOnUiThread((this::processLocationData));
-            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(locations.get((0)).getLatitude(), locations.get((0)).getLongitude()), 15));
+            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(locations.get((0)).getLatitude(), locations.get((0)).getLongitude()), 17));
         } else {
             showMessage("No location data detected");
             Log.d(TAG, "No location data detected");
         }
+
+        RecyclerView recyclerView = rootView.findViewById(R.id.recyclerViewLaps);
+        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        LapAdapter adapter = new LapAdapter(laps, new LapAdapter.OnItemClickListener() {
+            @Override
+            public void onItemClick(String lapNumber) {
+                drawLap(Integer.parseInt(lapNumber));
+            }
+        });
+        recyclerView.setAdapter(adapter);
     }
 
     private void readAndStoreCoordinates(String fileName) {
@@ -177,41 +188,45 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     }
 
     private void processLocationData() {
-        long startTime = System.nanoTime();
-        laps = LapDetection.getLaps(locations, googleMap, polylines, gridBounds, settingsViewModel);
-        long endTime = System.nanoTime();
-        Log.d(TAG, "Runtime: " + (endTime - startTime) / 1_000_000 + " ms");
-        if (!laps.isEmpty()) {
-            updateUI();
+        Pair<List<Lap>, Lap> lapData = LapDetection.getLaps(locations, googleMap, gridBounds, settingsViewModel);
 
-            // Button listeners
-            nextButton.setOnClickListener(v -> {
-                currentLapIndex = (currentLapIndex + 1) % laps.size();
-                updateUI();
-            });
-            prevButton.setOnClickListener(v -> {
-                currentLapIndex = (currentLapIndex - 1 + laps.size()) % laps.size();
-                updateUI();
-            });
-            rawDataButton.setOnClickListener(v -> MapDrawing.drawLap(googleMap, locations, polylines, minSpeed, maxSpeed));
+        laps = lapData.first;
+        fastestLap = lapData.second;
+
+        if (!laps.isEmpty()) {
+            if(fastestLap != null) {
+                textViewFastestLapTime.setText(String.format("%.3f", fastestLap.getLapTime()));
+                textViewFastestLap.setText("Fastest Lap: " + fastestLap.getLapNumber());
+
+                // Headers
+                textViewLapNumber = rootView.findViewById(R.id.textViewLapNumber);
+                textViewLapNumber.setText("Lap");
+                textViewLapTime = rootView.findViewById(R.id.textViewLapTime);
+                textViewLapTime.setText("Time");
+                textViewGap = rootView.findViewById(R.id.textViewLapTime);
+                textViewGap.setText("Gap");
+
+                drawLap(fastestLap.getLapNumber());
+            }
+            else {
+                textViewFastestLapTime.setText("0.00");
+                textViewFastestLap.setText("N/A");
+                drawAll();
+            }
         } else {
             showMessage("No laps detected");
-            MapDrawing.drawLap(googleMap, locations, polylines, minSpeed, maxSpeed);
-            textViewLaps.setText(String.format("Laps detected: %d (%d points)", laps.size(), pointsDetected));
+            drawAll();
+            textViewFastestLapTime.setText(String.format("Laps detected: %d (%d points)", laps.size(), pointsDetected));
         }
+
     }
 
-    private void updateUI() {
-        MapDrawing.drawLap(googleMap, laps.get(currentLapIndex).getLocationData(), polylines, minSpeed, maxSpeed);
-        textViewLapTime.setText(String.format("Lap time: %s", formatLapTime(laps.get(currentLapIndex).getLapTime())));
-        textViewLaps.setText(String.format("Laps detected: %d (%d points)", laps.size(), pointsDetected));
-        textCurrentLap.setText(String.format("Viewing lap: %d", currentLapIndex + 1));
+    private void drawLap(int lapIndex) {
+        MapDrawing.drawLap(googleMap, laps.get(lapIndex).getLocationData(), polylines, minSpeed, maxSpeed);
     }
 
-    private String formatLapTime(double lapTimeInSeconds) {
-        int minutes = (int) (lapTimeInSeconds / 60);
-        double seconds = lapTimeInSeconds % 60;
-        return String.format("%d:%06.3f", minutes, seconds);
+    private void drawAll() {
+        MapDrawing.drawLap(googleMap, locations, polylines, minSpeed, maxSpeed); // This draws all data, all points are passed in as a "lap"
     }
 
     private void showMessage(String message) {
