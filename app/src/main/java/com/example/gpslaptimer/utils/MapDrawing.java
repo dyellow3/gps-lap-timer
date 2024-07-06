@@ -21,7 +21,7 @@ public class MapDrawing {
                 .add(linePoints.get(0))
                 .add(linePoints.get(1))
                 .color(Color.RED)
-                .width(5);
+                .width(8);
         googleMap.addPolyline(polylineOptions);
     }
 
@@ -56,21 +56,6 @@ public class MapDrawing {
         polylines.add(polyline);
 
         googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(locations.get((0)).getLatitude(), locations.get((0)).getLongitude()), 15));
-    }
-
-    private static void addMarker(GoogleMap googleMap, LatLng position, String markerName, List<Marker> markers) {
-        Marker marker = googleMap.addMarker(new MarkerOptions()
-                .position(position)
-                .title(markerName)
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
-        markers.add(marker);
-    }
-
-    private static void removeMarkers(List<Marker> markers) {
-        for (Marker marker : markers) {
-            marker.remove();
-        }
-        markers.clear();
     }
 
     private static void removePolylines(List<Polyline> polylines) {

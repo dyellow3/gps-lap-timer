@@ -31,7 +31,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:orientation="vertical"
-        tools:listitem="@layout/item_lap" />
+        tools:listitem="@layout/item_history" />
 
 
 </LinearLayout>

@@ -1,5 +1,5 @@
 package com.example.gpslaptimer.ui.history;
-import com.example.gpslaptimer.adapters.LapAdapter;
+import com.example.gpslaptimer.adapters.HistoryAdapter;
 
 import android.app.AlertDialog;
 import android.os.Bundle;
@@ -28,7 +28,7 @@ public class HistoryFragment extends Fragment {
     private final String TAG = "HistoryFragment";
 
     private RecyclerView recyclerView;
-    private LapAdapter adapter;
+    private HistoryAdapter adapter;
     MapViewModel mapViewModel;
     private List<String> lapFiles;
 
@@ -45,7 +45,7 @@ public class HistoryFragment extends Fragment {
         recyclerView = rootView.findViewById(R.id.recyclerViewLaps);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         lapFiles = readLapFiles();
-        adapter = new LapAdapter(lapFiles, new LapAdapter.OnItemClickListener() {
+        adapter = new HistoryAdapter(lapFiles, new HistoryAdapter.OnItemClickListener() {
             @Override
             public void onItemClick(String lapFileName) {
                 mapViewModel.setFileName(lapFileName);
