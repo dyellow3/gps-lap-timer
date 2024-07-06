@@ -1,6 +1,10 @@
 # GPS Lap Timer
 An Android app that uses your phone's GPS to automatically track laps, providing insight into performance for racing and other circuit-based activites.
 
+<p align="center">
+    <img src="./images/in-app%20view.png" alt="In-App View" width="400">
+</p>
+
 ## Features
 - **GPS Tracking:** Utilizes the phone's GPS for location tracking.
 - **Automatic Lap Detection:** Automatically detects lap completions and calculates lap times and lap-to-lap time variations.
