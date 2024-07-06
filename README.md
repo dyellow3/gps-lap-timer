@@ -1,8 +1,25 @@
 # GPS Lap Timer
-This project combines an Arduino-based GPS device for data collection, with an Android app for communication and calculation of lap data. 
+An Android app that uses your phone's GPS to automatically track laps, providing insight into performance for racing and other circuit-based activites.
+
+<p align="center">
+    <img src="./images/in-app%20view.png" alt="In-App View" width="400">
+</p>
 
 ## Features
-- **Bluetooth Connectivity:** The app shows a list of paired devices, allowing the user to connect to the GPS Arduino device.
-- **Lap Tracking:** Once connected, users can start and stop lap tracking sessions.
-- **Automatic Lap Detection:** Upon completion of lap tracking, the app processes the GPS data to detect lap boundaries and times. It uses the Google Maps API to visually display each lap.
-- **History Management:** The app maintains a history of all previous laps, allowing users to review past lap data to get insight into performance improvement and progression.
+- **GPS Tracking:** Utilizes the phone's GPS for location tracking.
+- **Automatic Lap Detection:** Automatically detects lap completions and calculates lap times and lap-to-lap time variations.
+- **History Management:** Saves tracking sessions for later review and analysis, giving insight to performance progression.
+- **Map Visualization**: Uses Google Maps API to visually display laps.
+- **Settings**: Allows users to adjust parameters used for the lap detection algorithm.
+
+## Main Components
+- **AddFragment**: Handles GPS tracking, data logging, and file saving.
+- **MapFragment**: Visualizes tracked laps on a Google Map and displays lap statistics.
+- **HistoryFragment**: Displays past sessions.
+- **Settings Fragment**: Allows for adjustment of parameters.
+- **LapDetection**: Contains the algorithm for detecting laps and calculating lap times.
+- **MapDrawing**: Contains various functions that interact and draw on the Google Map.
+
+## Requirements
+- Android device with ideally 1hz GPS capability
+- A Google Cloud API Key with the following 3 APIs activated: Maps SDK for Android, Maps JavaScript API, Geocoding API. **Put this API Key into the secrets.properties file**.

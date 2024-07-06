@@ -203,7 +203,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                 textViewLapNumber.setText("Lap");
                 textViewLapTime = rootView.findViewById(R.id.textViewLapTime);
                 textViewLapTime.setText("Time");
-                textViewGap = rootView.findViewById(R.id.textViewLapTime);
+                textViewGap = rootView.findViewById(R.id.textViewGap);
                 textViewGap.setText("Gap");
 
                 drawLap(fastestLap.getLapNumber());
