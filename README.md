@@ -11,6 +11,7 @@ An Android app that uses your phone's GPS to automatically track laps, providing
 ## Main Components
 - **AddFragment**: Handles GPS tracking, data logging, and file saving.
 - **MapFragment**: Visualizes tracked laps on a Google Map and displays lap statistics.
+- **HistoryFragment**: Displays past sessions.
 - **Settings Fragment**: Allows for adjustment of parameters.
 - **LapDetection**: Contains the algorithm for detecting laps and calculating lap times.
 - **MapDrawing**: Contains various functions that interact and draw on the Google Map.
