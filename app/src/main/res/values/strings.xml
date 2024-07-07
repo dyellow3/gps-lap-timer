@@ -4,6 +4,6 @@
     <string name="hello_blank_fragment">Hello blank fragment</string>
     <string name="previous_laps">Previous Laps</string>
     <string name="settings">Settings</string>
-    <string name="directions">Click \'Start session\' when ready to begin tracking. Click \'Stop session\' when done, and your laps will automatically be detected, saved, and shown.</string>
+    <string name="directions">Click \'Start session\' when ready to begin tracking. Every 10th coordinate received will be shown below. \nClick \'Stop session\' when done, and your laps will automatically be detected, saved, and shown.</string>
     <string name="add_new_session">Add new session</string>
 </resources>

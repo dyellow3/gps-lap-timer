@@ -6,7 +6,10 @@ import androidx.core.app.ActivityCompat;
 import androidx.lifecycle.ViewModelProvider;
 
 import android.Manifest;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -18,25 +21,20 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import android.os.Looper;
-import android.os.PowerManager;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.WindowManager;
 import android.widget.Button;
 
+import com.example.gpslaptimer.LocationService;
 import com.example.gpslaptimer.MainActivity;
 import com.example.gpslaptimer.R;
 import com.example.gpslaptimer.adapters.ConsoleLogAdapter;
 import com.example.gpslaptimer.ui.map.MapViewModel;
 import com.google.android.gms.common.api.ResolvableApiException;
-import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.Granularity;
-import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResponse;
@@ -69,24 +67,44 @@ public class AddFragment extends Fragment {
     private List<Location> locations = new ArrayList<>();
     private List<String> logMessages = new ArrayList<>();
     private String fileName = "";
+    Long initialElapsedRealtimeNanos = null;
 
-    private FusedLocationProviderClient fusedLocationProviderClient;
-    private LocationRequest locationRequest;
-    private LocationSettingsRequest.Builder builder;
-    private LocationCallback locationCallback;
     private ActivityResultLauncher<String[]> locationPermissionRequest;
 
     private boolean isTracking = false;
-    private Long initialElapsedRealtimeNanos = null;
 
-    private PowerManager.WakeLock wakeLock;
+
+    private BroadcastReceiver locationReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction() != null && intent.getAction().equals("LOCATION_UPDATED")) {
+                Log.d(TAG, "Location Received");
+                Location location = intent.getParcelableExtra("location");
+                if (location != null) {
+                    if(initialElapsedRealtimeNanos == null) {
+                        initialElapsedRealtimeNanos = location.getElapsedRealtimeNanos();
+                    }
+
+                    // Set more convenient real time
+                    location.setElapsedRealtimeNanos(location.getElapsedRealtimeNanos() - initialElapsedRealtimeNanos);
+                    locations.add(location);
+
+                    // Show every 10th coordinate
+                    if(locations.size() % 10 == 0) {
+                        double elapsedTimeSeconds = location.getElapsedRealtimeNanos() / 1000000000.0;
+                        logMessage(String.format("%f,%f,%f,%.3f",
+                                location.getLatitude(), location.getLongitude(),
+                                location.getSpeed(), elapsedTimeSeconds));
+                    }
+
+                }
+            }
+        }
+    };
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(requireActivity());
-        createLocationCallback();
-        createLocationRequest();
     }
 
     @Override
@@ -101,20 +119,21 @@ public class AddFragment extends Fragment {
         buttonStartStop.setText("Start Session");
         buttonStartStop.setOnClickListener(v -> {
             if(!isTracking) {
+                locations = new ArrayList<>();
                 checkLocationSettings();
             } else {
                 stopLocationUpdates();
-                releaseWakeLock();
                 fileName = getUniqueFileName();
                 if(saveCoordinatesToFile(locations, fileName)) {
                     mapViewModel.setFileName(fileName);
                     ((MainActivity) getActivity()).onMapFragmentRequest();
                 }
+
+
             }
         });
 
         recyclerView = rootView.findViewById(R.id.recyclerViewConsoleLog);
-        logMessages = new ArrayList<>();
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new ConsoleLogAdapter(logMessages);
         recyclerView.setAdapter(adapter);
@@ -125,58 +144,37 @@ public class AddFragment extends Fragment {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        releaseWakeLock();
-        keepScreenOn(false);
     }
 
     private void setupLocationPermissionRequest() {
         locationPermissionRequest = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
             Boolean fineLocationGranted = result.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false);
-            Boolean coarseLocationGranted = result.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION,false);
             if (fineLocationGranted != null && fineLocationGranted) {
                 startLocationUpdates();
             } else {
                 logMessage("Location permission denied");
+
             }
         });
     }
 
     private void requestLocationPermission() {
         locationPermissionRequest.launch(new String[] {
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
+                Manifest.permission.ACCESS_FINE_LOCATION
         });
     }
 
-    protected void createLocationRequest() {
-        locationRequest = new LocationRequest.Builder(0)
+    private void checkLocationSettings() {
+        LocationRequest locationRequest = new LocationRequest.Builder(0)
                 .setGranularity(Granularity.GRANULARITY_FINE)
                 .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
                 .setMinUpdateDistanceMeters(1)
                 .setIntervalMillis(0)
                 .setMinUpdateIntervalMillis(0)
                 .build();
-        builder = new LocationSettingsRequest.Builder()
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
                 .addLocationRequest(locationRequest);
-    }
 
-    private void createLocationCallback() {
-        locationCallback = new LocationCallback() {
-            @Override
-            public void onLocationResult(@NonNull LocationResult locationResult) {
-                for (Location location : locationResult.getLocations()) {
-                    locations.add(location);
-                    if(initialElapsedRealtimeNanos == null) {
-                        initialElapsedRealtimeNanos = location.getElapsedRealtimeNanos();
-                    }
-                    double elapsedTime = (location.getElapsedRealtimeNanos() - initialElapsedRealtimeNanos) / 1000000000.0;
-                    logMessage(location.getLatitude() + "," + location.getLongitude() + "," + location.getSpeed() + "," + String.format("%.3f", elapsedTime));
-                }
-            }
-        };
-    }
-
-    private void checkLocationSettings() {
         SettingsClient client = LocationServices.getSettingsClient(requireActivity());
         Task<LocationSettingsResponse> task = client.checkLocationSettings(builder.build());
 
@@ -185,7 +183,6 @@ public class AddFragment extends Fragment {
             @Override
             public void onSuccess(LocationSettingsResponse locationSettingsResponse) {
                 startLocationUpdates();
-                acquireWakeLock();
             }
         });
 
@@ -211,46 +208,36 @@ public class AddFragment extends Fragment {
             requestLocationPermission();
             return;
         }
-        fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
+
+        IntentFilter filter = new IntentFilter("LOCATION_UPDATED");
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) { // API level 33+
+            requireContext().registerReceiver(locationReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            requireContext().registerReceiver(locationReceiver, filter);
+        }
+
+        Intent intent = new Intent(requireContext(), LocationService.class);
+        intent.setAction("ACTION_START");
+        requireActivity().startService(intent);
+
         isTracking = true;
         buttonStartStop.setText("Stop Session");
-        keepScreenOn(true);
         logMessage("Location updates started");
     }
 
     private void stopLocationUpdates() {
-        fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+        requireContext().unregisterReceiver(locationReceiver);
+
+        Intent intent = new Intent(requireContext(), LocationService.class);
+        intent.setAction("ACTION_STOP");
+        requireActivity().startService(intent);
+
         isTracking = false;
         buttonStartStop.setText("Start");
         logMessage("Location updates stopped");
-        keepScreenOn(false);
     }
 
-    private void acquireWakeLock() {
-        PowerManager powerManager = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyApp::WakeLock");
-        wakeLock.acquire();
-    }
-
-    private void releaseWakeLock() {
-        if (wakeLock != null && wakeLock.isHeld()) {
-            wakeLock.release();
-        }
-
-    }
-    private void keepScreenOn(boolean on) {
-        if (getActivity() != null) {
-            if (on) {
-                getActivity().getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-            } else {
-                getActivity().getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-            }
-        }
-    }
-
-
-
-    private void logMessage(String message) {
+    public void logMessage(String message) {
         adapter.addMessage(message);
         recyclerView.scrollToPosition(adapter.getItemCount() - 1);
         Log.d(TAG, message);
@@ -262,8 +249,8 @@ public class AddFragment extends Fragment {
         int count = 0;
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
             for (Location location : coordinates) {
-                double elapsedTime = (location.getElapsedRealtimeNanos() - initialElapsedRealtimeNanos) / 1000000000.0;
-                writer.write(location.getLatitude() + "," + location.getLongitude() + "," + location.getSpeed() + "," + String.format("%.3f", elapsedTime));
+                double elapsedTimeSeconds = location.getElapsedRealtimeNanos() / 1000000000.0;
+                writer.write(location.getLatitude() + "," + location.getLongitude() + "," + location.getSpeed() + "," + String.format("%.3f", elapsedTimeSeconds));
                 writer.newLine();
                 count++;
             }
@@ -278,12 +265,12 @@ public class AddFragment extends Fragment {
     private String getUniqueFileName() {
         String baseName = "Unknown date";
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            LocalDate today = LocalDate.now();
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM-dd");
-            baseName = today.format(formatter);
+            baseName = LocalDate.now().format(DateTimeFormatter.ofPattern("MM-dd"));
         }
 
-        if (getContext() == null) return baseName;
+        Context context = getContext();
+        if (context == null) return baseName;
+
         File directory = getContext().getExternalFilesDir(null);
         if (directory == null) return baseName;
 
