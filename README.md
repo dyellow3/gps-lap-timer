@@ -1,5 +1,5 @@
 # GPS Lap Timer
-An Android app that uses your phone's GPS to automatically track and detect laps, providing insight into performance for racing and other circuit-based activites.
+An Android app that uses your phone's GPS to automatically track and detect laps, providing insight into performance for circuit-based activities.
 
 <p align="center">
     <img src="./images/in-app%20view.png" alt="In-App View" width="400">
