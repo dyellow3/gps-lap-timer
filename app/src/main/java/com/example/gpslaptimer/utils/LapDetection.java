@@ -10,7 +10,6 @@ import com.example.gpslaptimer.models.Lap;
 import com.example.gpslaptimer.ui.settings.SettingsViewModel;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.Polyline;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,11 +17,14 @@ public class LapDetection {
     private static final String TAG = "LapDetectionUtil";
 
     public static Pair<List<Lap>, Lap> getLaps(List<Location> locations, GoogleMap googleMap, List<Double> gridBounds, SettingsViewModel settingsViewModel) {
+        // Get the finish line
         List<LatLng> finishLine = getFinishLine(locations, gridBounds, settingsViewModel);
-        Double fastestTime = Double.POSITIVE_INFINITY;
+
+        double fastestTime = Double.POSITIVE_INFINITY;
         Lap fastestLap = null;
 
         if(finishLine != null) {
+            // Draw the finish line
             MapDrawing.drawLine(googleMap, finishLine);
             LatLng finishLineStartPoint = finishLine.get(0);
             LatLng finishLineEndPoint = finishLine.get(1);

@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.gpslaptimer.R;
 import com.example.gpslaptimer.models.Lap;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class LapAdapter extends RecyclerView.Adapter<LapAdapter.LapViewHolder> {
@@ -21,7 +22,7 @@ public class LapAdapter extends RecyclerView.Adapter<LapAdapter.LapViewHolder> {
     private int selectedPosition = RecyclerView.NO_POSITION;
 
     public LapAdapter(List<Lap> laps, OnItemClickListener itemClickListener) {
-        this.laps = laps;
+        this.laps = laps != null ? laps : new ArrayList<>();
         this.itemClickListener = itemClickListener;
     }
 

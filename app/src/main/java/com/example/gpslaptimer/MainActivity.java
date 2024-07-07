@@ -21,9 +21,12 @@ import com.example.gpslaptimer.ui.map.MapFragment;
 import com.example.gpslaptimer.ui.settings.SettingsFragment;
 import com.example.gpslaptimer.ui.settings.SettingsViewModel;
 
+import org.apache.commons.math3.analysis.function.Add;
+
 public class MainActivity extends AppCompatActivity {
+    private static final String TAG = "MainActivity";
+
     ActivityMainBinding binding;
-    private TextView connectStatus;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,15 +41,15 @@ public class MainActivity extends AppCompatActivity {
         binding.bottomNavigationView.setOnItemSelectedListener(item -> {
             switch(item.getItemId()) {
                 case R.id.add:
-                    Log.d("MainActivity", "Loading AddFragment");
+                    Log.d(TAG, "Loading AddFragment");
                     replaceFragment(new AddFragment());
                     break;
                 case R.id.history:
-                    Log.d("MainActivity", "Loading HistoryFragment");
+                    Log.d(TAG, "Loading HistoryFragment");
                     replaceFragment(new HistoryFragment());
                     break;
                 case R.id.settings:
-                    Log.d("MainActivity", "Loading SettingsFragment");
+                    Log.d(TAG, "Loading SettingsFragment");
                     replaceFragment(new SettingsFragment());
             }
             return true;
@@ -69,4 +72,5 @@ public class MainActivity extends AppCompatActivity {
         fragmentTransaction.replace(R.id.mainFrameLayout, fragment);
         fragmentTransaction.commit();
     }
+
 }
