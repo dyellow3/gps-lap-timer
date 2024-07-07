@@ -23,7 +23,6 @@ import com.example.gpslaptimer.ui.settings.SettingsViewModel;
 
 public class MainActivity extends AppCompatActivity {
     ActivityMainBinding binding;
-    private TextView connectStatus;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

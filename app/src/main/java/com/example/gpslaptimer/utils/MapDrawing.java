@@ -43,31 +43,11 @@ public class MapDrawing {
         }
     }
 
-    public static void drawAllCoordinates(GoogleMap googleMap, List<Location> locations, List<Polyline> polylines, double minSpeed, double maxSpeed) {
-        removePolylines(polylines);
-
-        PolylineOptions polylineOptions = new PolylineOptions();
-        for (Location location : locations) {
-            polylineOptions.add(new LatLng(location.getLatitude(), location.getLongitude()));
-        }
-        polylineOptions.color(getRandomColor()).width(5);
-
-        Polyline polyline = googleMap.addPolyline(polylineOptions);
-        polylines.add(polyline);
-
-        googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(locations.get((0)).getLatitude(), locations.get((0)).getLongitude()), 15));
-    }
-
     private static void removePolylines(List<Polyline> polylines) {
         for (Polyline polyline : polylines) {
             polyline.remove();
         }
         polylines.clear();
-    }
-
-    private static int getRandomColor() {
-        Random rnd = new Random();
-        return Color.argb(255, rnd.nextInt(256), rnd.nextInt(256), rnd.nextInt(256));
     }
 
     private static int getColorForSpeed(double speed, double minSpeed, double maxSpeed) {
