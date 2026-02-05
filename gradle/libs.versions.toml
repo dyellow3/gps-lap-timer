@@ -29,4 +29,5 @@ play-services-location = { group = "com.google.android.gms", name = "play-servic
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
 

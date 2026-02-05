@@ -21,8 +21,6 @@ import com.example.gpslaptimer.ui.map.MapFragment;
 import com.example.gpslaptimer.ui.settings.SettingsFragment;
 import com.example.gpslaptimer.ui.settings.SettingsViewModel;
 
-import org.apache.commons.math3.analysis.function.Add;
-
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
 

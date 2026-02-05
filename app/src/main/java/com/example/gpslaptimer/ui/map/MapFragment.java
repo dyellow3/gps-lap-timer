@@ -4,7 +4,6 @@ import android.app.AlertDialog;
 import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
-import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,6 +17,8 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.gpslaptimer.adapters.LapAdapter;
+import com.example.gpslaptimer.config.LapDetectionConfig;
+import com.example.gpslaptimer.models.LapDetectionResult;
 import com.example.gpslaptimer.ui.settings.SettingsViewModel;
 import com.example.gpslaptimer.utils.LapDetection;
 import com.example.gpslaptimer.utils.MapDrawing;
@@ -184,10 +185,19 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     }
 
     private void processLocationData() {
-        Pair<List<Lap>, Lap> lapData = LapDetection.getLaps(locations, googleMap, gridBounds, settingsViewModel);
+        LapDetectionConfig config = new LapDetectionConfig(
+                settingsViewModel.getSetting("finish_length").getValue(),
+                settingsViewModel.getSetting("grid_size").getValue(),
+                settingsViewModel.getSetting("direction_tolerance").getValue()
+        );
+        LapDetectionResult lapData = LapDetection.getLaps(locations, gridBounds, config);
 
-        laps = lapData.first;
-        fastestLap = lapData.second;
+        laps = lapData.getLaps();
+        fastestLap = lapData.getFastestLap();
+
+        if (lapData.getFinishLine() != null) {
+            MapDrawing.drawLine(googleMap, lapData.getFinishLine());
+        }
 
         if (!laps.isEmpty()) {
             if(fastestLap != null) {
