@@ -4,28 +4,27 @@ import android.location.Location;
 import android.util.Log;
 import android.util.Pair;
 
+import com.example.gpslaptimer.config.LapDetectionConfig;
 import com.example.gpslaptimer.models.Grid;
 import com.example.gpslaptimer.models.GridCell;
 import com.example.gpslaptimer.models.Lap;
-import com.example.gpslaptimer.ui.settings.SettingsViewModel;
-import com.google.android.gms.maps.GoogleMap;
+import com.example.gpslaptimer.models.LapDetectionResult;
 import com.google.android.gms.maps.model.LatLng;
 
 import java.util.ArrayList;
 import java.util.List;
+
 public class LapDetection {
     private static final String TAG = "LapDetectionUtil";
 
-    public static Pair<List<Lap>, Lap> getLaps(List<Location> locations, GoogleMap googleMap, List<Double> gridBounds, SettingsViewModel settingsViewModel) {
+    public static LapDetectionResult getLaps(List<Location> locations, List<Double> gridBounds, LapDetectionConfig config) {
         // Get the finish line
-        List<LatLng> finishLine = getFinishLine(locations, gridBounds, settingsViewModel);
+        List<LatLng> finishLine = getFinishLine(locations, gridBounds, config);
 
         double fastestTime = Double.POSITIVE_INFINITY;
         Lap fastestLap = null;
 
-        if(finishLine != null) {
-            // Draw the finish line
-            MapDrawing.drawLine(googleMap, finishLine);
+        if (finishLine != null) {
             LatLng finishLineStartPoint = finishLine.get(0);
             LatLng finishLineEndPoint = finishLine.get(1);
 
@@ -43,10 +42,10 @@ public class LapDetection {
                 // Intersection detected
                 if (intersectionPoint != null && i - startIndex > 2) {
                     List<Location> lap = new ArrayList<>(locations.subList(startIndex, i + 1));
-                    Pair<Double, Double> lapTime = getLapTime(lap, finishLineStartPoint, finishLineEndPoint, settingsViewModel);
-                    if(startIndex != 0) {
+                    Pair<Double, Double> lapTime = getLapTime(lap, finishLineStartPoint, finishLineEndPoint);
+                    if (startIndex != 0) {
                         Lap currLap = new Lap(lap, lapTime.first + carryOverTime, laps.size());
-                        if((lapTime.first + carryOverTime) < fastestTime) {
+                        if ((lapTime.first + carryOverTime) < fastestTime) {
                             fastestLap = currLap;
                             fastestTime = lapTime.first + carryOverTime;
                         }
@@ -63,41 +62,40 @@ public class LapDetection {
             if (startIndex < locations.size() - 1) {
                 List<Location> finalLap = new ArrayList<>(locations.subList(startIndex, locations.size()));
                 double finalLapTime = 0;
-                for(int i = 0; i < finalLap.size(); i++) {
+                for (int i = 0; i < finalLap.size(); i++) {
                     finalLapTime += 1;
                 }
                 laps.add(new Lap(finalLap, finalLapTime + carryOverTime, laps.size()));
             }
 
             // Add variance from fastest to each lap
-            for(int i = 1; i < laps.size() - 1; i++) {
+            for (int i = 1; i < laps.size() - 1; i++) {
                 Lap curr = laps.get(i);
                 curr.setLapVariation(curr.getLapTime() - fastestTime);
             }
 
-            if(laps.isEmpty()) {
+            if (laps.isEmpty()) {
                 Log.d(TAG, "Could not detect any laps");
-                return new Pair<>(new ArrayList<>(), null);
+                return new LapDetectionResult(new ArrayList<>(), null, null);
             }
-            return new Pair<>(laps, fastestLap);
+            return new LapDetectionResult(laps, fastestLap, finishLine);
         } else {
             Log.d(TAG, "Could not detect start / finish points");
-            return new Pair<>(new ArrayList<>(), null);
+            return new LapDetectionResult(new ArrayList<>(), null, null);
         }
-
     }
 
 
-    public static List<LatLng> getFinishLine(List<Location> locations, List<Double> gridBounds, SettingsViewModel settingsViewModel) {
-        double LINE_LENGTH = settingsViewModel.getSetting("finish_length").getValue();
-        double GRID_SIZE = settingsViewModel.getSetting("grid_size").getValue();
-        double DIRECTION_TOLERANCE = Math.toRadians(settingsViewModel.getSetting("direction_tolerance").getValue());
+    public static List<LatLng> getFinishLine(List<Location> locations, List<Double> gridBounds, LapDetectionConfig config) {
+        double LINE_LENGTH = config.getFinishLength();
+        double GRID_SIZE = config.getGridSize();
+        double DIRECTION_TOLERANCE = Math.toRadians(config.getDirectionTolerance());
 
         Grid grid = Grid.createGrid(locations, gridBounds, GRID_SIZE, DIRECTION_TOLERANCE);
 
-        if(grid != null) {
+        if (grid != null) {
             GridCell maxCountCell = grid.getMaxCountCell();
-            if(maxCountCell != null && maxCountCell.getCount() > 1) {
+            if (maxCountCell != null && maxCountCell.getCount() > 1) {
                 LatLng centerLatLng = getAveragePoint(maxCountCell.getPoints());
                 LatLng directionVector = maxCountCell.getDirectionVector();
 
@@ -123,15 +121,15 @@ public class LapDetection {
         return null;
     }
 
-    public static Pair<Double, Double> getLapTime(List<Location> lap, LatLng finishLineStartPoint, LatLng finishLineEndPoint, SettingsViewModel settingsViewModel) {
+    public static Pair<Double, Double> getLapTime(List<Location> lap, LatLng finishLineStartPoint, LatLng finishLineEndPoint) {
         double lapTime = 0;
         double carryOverTime = 0;
 
         int n = lap.size();
         if (n > 2) {
             Location firstPoint = lap.get(0);
-            Location lastPoint = lap.get(n-1);
-            Location secondLastPoint = lap.get(n-2);
+            Location lastPoint = lap.get(n - 1);
+            Location secondLastPoint = lap.get(n - 2);
 
             LatLng lastLatLng = new LatLng(lastPoint.getLatitude(), lastPoint.getLongitude());
             LatLng secondLastLatLng = new LatLng(secondLastPoint.getLatitude(), secondLastPoint.getLongitude());
@@ -221,5 +219,4 @@ public class LapDetection {
         double distance = earthRadius * c;
         return distance;
     }
-
 }

@@ -21,4 +21,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "GPS Lap Timer"
 include(":app")
+include(":shared")
+include(":wear")
  
