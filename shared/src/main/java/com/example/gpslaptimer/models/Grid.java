@@ -1,7 +1,5 @@
 package com.example.gpslaptimer.models;
 
-import android.location.Location;
-
 import com.google.android.gms.maps.model.LatLng;
 
 import java.util.List;
@@ -30,7 +28,7 @@ public class Grid {
         return maxCountCell;
     }
 
-    public static Grid createGrid(List<Location> locations, List<Double> gridBounds, double squareSize, double directionTolerance) {
+    public static Grid createGrid(List<TrackPoint> locations, List<Double> gridBounds, double squareSize, double directionTolerance) {
         double minLon = gridBounds.get(0), maxLon = gridBounds.get(1);
         double minLat = gridBounds.get(2), maxLat = gridBounds.get(3);
 
@@ -44,8 +42,8 @@ public class Grid {
         Grid grid = new Grid(minLon, maxLon, minLat, maxLat, squareSize);
 
         for (int i = 0; i < locations.size() - 1; i++) {
-            Location curr = locations.get(i);
-            Location next = locations.get(i + 1);
+            TrackPoint curr = locations.get(i);
+            TrackPoint next = locations.get(i + 1);
 
             int x = (int) (degreesToMeters(curr.getLongitude() - minLon) / squareSize);
             int y = (int) (degreesToMeters(curr.getLatitude() - minLat) / squareSize);

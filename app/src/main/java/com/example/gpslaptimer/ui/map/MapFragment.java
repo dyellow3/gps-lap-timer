@@ -1,7 +1,6 @@
 package com.example.gpslaptimer.ui.map;
 
 import android.app.AlertDialog;
-import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -24,6 +23,7 @@ import com.example.gpslaptimer.utils.LapDetection;
 import com.example.gpslaptimer.utils.MapDrawing;
 import com.example.gpslaptimer.R;
 import com.example.gpslaptimer.models.Lap;
+import com.example.gpslaptimer.models.TrackPoint;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -47,7 +47,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     private SettingsViewModel settingsViewModel;
 
 
-    private List<Location> locations = new ArrayList<>();
+    private List<TrackPoint> locations = new ArrayList<>();
     private List<Double> gridBounds = new ArrayList<>();
     private List<Polyline> polylines = new ArrayList<>();
     private List<Lap> laps;
@@ -137,7 +137,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         File file = new File(directory, fileName);
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
-            Location prev = null;
+            TrackPoint prev = null;
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(",");
                 if (parts.length >= 2) {
@@ -154,15 +154,11 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                     minSpeed = Math.min(minSpeed, speed);
                     maxSpeed = Math.max(maxSpeed, speed);
 
-                    Location curr = new Location("");
-                    curr.setLatitude(latitude);
-                    curr.setLongitude(longitude);
-                    curr.setSpeed(speed);
-                    curr.setTime((long) (elapsedTime * 1000)); // s to ms
+                    TrackPoint curr = new TrackPoint(latitude, longitude, speed, (long) (elapsedTime * 1000));
                     pointsDetected++;
 
                     if(prev != null) {
-                        double distance = prev.distanceTo(curr);
+                        double distance = TrackPoint.distanceMeters(prev, curr);
                         if(distance > 0.5) {
                             this.locations.add(curr);
                             prev = curr;

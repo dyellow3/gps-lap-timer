@@ -1,23 +1,32 @@
 package com.example.gpslaptimer.utils;
 
-import android.location.Location;
-import android.util.Log;
-import android.util.Pair;
-
 import com.example.gpslaptimer.config.LapDetectionConfig;
 import com.example.gpslaptimer.models.Grid;
 import com.example.gpslaptimer.models.GridCell;
 import com.example.gpslaptimer.models.Lap;
 import com.example.gpslaptimer.models.LapDetectionResult;
+import com.example.gpslaptimer.models.TrackPoint;
 import com.google.android.gms.maps.model.LatLng;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class LapDetection {
-    private static final String TAG = "LapDetectionUtil";
+    private static final Logger LOG = Logger.getLogger("LapDetection");
 
-    public static LapDetectionResult getLaps(List<Location> locations, List<Double> gridBounds, LapDetectionConfig config) {
+    /** Replaces android.util.Pair<Double, Double> for lap time + carry-over. */
+    static class LapTimeSplit {
+        final double lapTime;
+        final double carryOver;
+
+        LapTimeSplit(double lapTime, double carryOver) {
+            this.lapTime = lapTime;
+            this.carryOver = carryOver;
+        }
+    }
+
+    public static LapDetectionResult getLaps(List<TrackPoint> locations, List<Double> gridBounds, LapDetectionConfig config) {
         // Get the finish line
         List<LatLng> finishLine = getFinishLine(locations, gridBounds, config);
 
@@ -25,7 +34,7 @@ public class LapDetection {
         Lap fastestLap = null;
 
         if (finishLine == null) {
-            Log.d(TAG, "Could not detect start / finish points");
+            LOG.fine("Could not detect start / finish points");
             return new LapDetectionResult(new ArrayList<>(), null, null);
         }
 
@@ -45,26 +54,26 @@ public class LapDetection {
 
             // Intersection detected
             if (intersectionPoint != null && i - startIndex > 2) {
-                List<Location> lap = new ArrayList<>(locations.subList(startIndex, i + 1));
-                Pair<Double, Double> lapTime = getLapTime(lap, finishLineStartPoint, finishLineEndPoint);
+                List<TrackPoint> lap = new ArrayList<>(locations.subList(startIndex, i + 1));
+                LapTimeSplit timeSplit = getLapTime(lap, finishLineStartPoint, finishLineEndPoint);
                 if (startIndex != 0) {
-                    Lap currLap = new Lap(lap, lapTime.first + carryOverTime, laps.size());
-                    if ((lapTime.first + carryOverTime) < fastestTime) {
+                    Lap currLap = new Lap(lap, timeSplit.lapTime + carryOverTime, laps.size());
+                    if ((timeSplit.lapTime + carryOverTime) < fastestTime) {
                         fastestLap = currLap;
-                        fastestTime = lapTime.first + carryOverTime;
+                        fastestTime = timeSplit.lapTime + carryOverTime;
                     }
                     laps.add(currLap);
                 } else {
                     laps.add(new Lap(lap, 0.0, laps.size()));
                 }
-                carryOverTime = lapTime.second;
+                carryOverTime = timeSplit.carryOver;
                 startIndex = i;
             }
         }
 
         // Add leftover lap data
         if (startIndex < locations.size() - 1) {
-            List<Location> finalLap = new ArrayList<>(locations.subList(startIndex, locations.size()));
+            List<TrackPoint> finalLap = new ArrayList<>(locations.subList(startIndex, locations.size()));
             double finalLapTime = 0;
             for (int i = 0; i < finalLap.size(); i++) {
                 finalLapTime += 1;
@@ -79,14 +88,14 @@ public class LapDetection {
         }
 
         if (laps.isEmpty()) {
-            Log.d(TAG, "Could not detect any laps");
+            LOG.fine("Could not detect any laps");
             return new LapDetectionResult(new ArrayList<>(), null, null);
         }
         return new LapDetectionResult(laps, fastestLap, finishLine);
     }
 
 
-    public static List<LatLng> getFinishLine(List<Location> locations, List<Double> gridBounds, LapDetectionConfig config) {
+    public static List<LatLng> getFinishLine(List<TrackPoint> locations, List<Double> gridBounds, LapDetectionConfig config) {
         double LINE_LENGTH = config.getFinishLength();
         double GRID_SIZE = config.getGridSize();
         double DIRECTION_TOLERANCE = Math.toRadians(config.getDirectionTolerance());
@@ -102,7 +111,7 @@ public class LapDetection {
         if (maxCountCell == null || maxCountCell.getCount() <= 1) {
             return null;
         }
-        
+
         LatLng centerLatLng = getAveragePoint(maxCountCell.getPoints());
         LatLng directionVector = maxCountCell.getDirectionVector();
 
@@ -122,18 +131,18 @@ public class LapDetection {
         finishLine.add(new LatLng(endLat, endLng));
 
         return finishLine;
-        
+
     }
 
-    public static Pair<Double, Double> getLapTime(List<Location> lap, LatLng finishLineStartPoint, LatLng finishLineEndPoint) {
+    public static LapTimeSplit getLapTime(List<TrackPoint> lap, LatLng finishLineStartPoint, LatLng finishLineEndPoint) {
         double lapTime = 0;
         double carryOverTime = 0;
 
         int n = lap.size();
         if (n > 2) {
-            Location firstPoint = lap.get(0);
-            Location lastPoint = lap.get(n - 1);
-            Location secondLastPoint = lap.get(n - 2);
+            TrackPoint firstPoint = lap.get(0);
+            TrackPoint lastPoint = lap.get(n - 1);
+            TrackPoint secondLastPoint = lap.get(n - 2);
 
             LatLng lastLatLng = new LatLng(lastPoint.getLatitude(), lastPoint.getLongitude());
             LatLng secondLastLatLng = new LatLng(secondLastPoint.getLatitude(), secondLastPoint.getLongitude());
@@ -155,14 +164,14 @@ public class LapDetection {
                 lapTime = (lastPoint.getTime() - firstPoint.getTime());
             }
         }
-        return new Pair<>(lapTime / 1000.0, carryOverTime / 1000.0); //s to ms
+        return new LapTimeSplit(lapTime / 1000.0, carryOverTime / 1000.0); //s to ms
     }
 
-    public static LatLng getAveragePoint(List<Location> points) {
+    public static LatLng getAveragePoint(List<TrackPoint> points) {
         double sumLat = 0;
         double sumLng = 0;
 
-        for (Location point : points) {
+        for (TrackPoint point : points) {
             sumLat += point.getLatitude();
             sumLng += point.getLongitude();
         }
@@ -184,7 +193,7 @@ public class LapDetection {
         if (determinant == 0) {
             return null;
         }
-        
+
         double longitude = (b2 * c1 - b1 * c2) / determinant;
         double latitude = (a1 * c2 - a2 * c1) / determinant;
 

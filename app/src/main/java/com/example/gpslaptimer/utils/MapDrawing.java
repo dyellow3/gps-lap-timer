@@ -1,8 +1,8 @@
 package com.example.gpslaptimer.utils;
 
 import android.graphics.Color;
-import android.location.Location;
 
+import com.example.gpslaptimer.models.TrackPoint;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
@@ -25,12 +25,12 @@ public class MapDrawing {
         googleMap.addPolyline(polylineOptions);
     }
 
-    public static void drawLap(GoogleMap googleMap, List<Location> lap, List<Polyline> polylines, double minSpeed, double maxSpeed) {
+    public static void drawLap(GoogleMap googleMap, List<TrackPoint> lap, List<Polyline> polylines, double minSpeed, double maxSpeed) {
         removePolylines(polylines);
 
         for (int i = 0; i < lap.size() - 1; i++) {
-            Location start = lap.get(i);
-            Location end = lap.get(i + 1);
+            TrackPoint start = lap.get(i);
+            TrackPoint end = lap.get(i + 1);
 
             PolylineOptions polylineOptions = new PolylineOptions()
                     .add(new LatLng(start.getLatitude(), start.getLongitude()))
