@@ -1,17 +1,15 @@
 package com.example.gpslaptimer.models;
 
-import android.location.Location;
-
 import com.google.android.gms.maps.model.LatLng;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class GridCell {
-    private List<Location> points = new ArrayList<>();
+    private List<TrackPoint> points = new ArrayList<>();
     private LatLng directionVector = null;
 
-    public void addPoint(Location point) {
+    public void addPoint(TrackPoint point) {
         points.add(point);
     }
 
@@ -19,7 +17,7 @@ public class GridCell {
         return points.size();
     }
 
-    public List<Location> getPoints() {
+    public List<TrackPoint> getPoints() {
         return points;
     }
 
