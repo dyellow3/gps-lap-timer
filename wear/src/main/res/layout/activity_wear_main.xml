@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.wear.widget.BoxInsetLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:boxedEdges="all">
+
+        <TextView
+            android:id="@+id/textTimer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/timer_default"
+            android:textSize="40sp"
+            android:textColor="@android:color/white"
+            android:fontFamily="monospace"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/textStatus"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintVertical_chainStyle="packed" />
+
+        <TextView
+            android:id="@+id/textStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/status_ready"
+            android:textSize="12sp"
+            android:textColor="@android:color/darker_gray"
+            android:layout_marginTop="4dp"
+            app:layout_constraintTop_toBottomOf="@id/textTimer"
+            app:layout_constraintBottom_toTopOf="@id/buttonStartStop"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <Button
+            android:id="@+id/buttonStartStop"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/button_start"
+            android:layout_marginTop="12dp"
+            app:layout_constraintTop_toBottomOf="@id/textStatus"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.wear.widget.BoxInsetLayout>

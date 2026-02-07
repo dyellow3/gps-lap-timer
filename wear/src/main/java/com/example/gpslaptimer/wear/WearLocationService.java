@@ -48,6 +48,17 @@ public class WearLocationService extends Service {
     private Long initialElapsedRealtimeNanos;
     private boolean isTracking = false;
 
+    private static boolean sIsTracking = false;
+    private static long sTrackingStartTimeMillis = 0;
+
+    public static boolean isCurrentlyTracking() {
+        return sIsTracking;
+    }
+
+    public static long getTrackingStartTimeMillis() {
+        return sTrackingStartTimeMillis;
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -95,6 +106,8 @@ public class WearLocationService extends Service {
                 locationRequest, locationCallback, Looper.getMainLooper());
 
         isTracking = true;
+        sIsTracking = true;
+        sTrackingStartTimeMillis = System.currentTimeMillis();
         startForeground(NOTIFICATION_ID, createNotification());
         Log.d(TAG, "Tracking started, writing to: " + currentFileName);
     }
@@ -105,6 +118,8 @@ public class WearLocationService extends Service {
         }
 
         isTracking = false;
+        sIsTracking = false;
+        sTrackingStartTimeMillis = 0;
         fusedLocationProviderClient.removeLocationUpdates(locationCallback);
         closeCsvWriter();
 
