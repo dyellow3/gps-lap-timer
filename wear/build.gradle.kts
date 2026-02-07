@@ -24,6 +24,10 @@ android {
         }
     }
 
+    buildFeatures {
+        viewBinding = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
@@ -33,5 +37,8 @@ android {
 dependencies {
     implementation(project(":shared"))
     implementation(libs.appcompat)
+    implementation(libs.constraintlayout)
+    implementation(libs.activity)
+    implementation("androidx.wear:wear:1.3.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
 }
