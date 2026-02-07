@@ -48,6 +48,22 @@ public class WearLocationService extends Service {
     private Long initialElapsedRealtimeNanos;
     private boolean isTracking = false;
 
+    private static boolean sIsTracking = false;
+    private static long sTrackingStartTimeMillis = 0;
+    private static int sPointCount = 0;
+
+    public static boolean isCurrentlyTracking() {
+        return sIsTracking;
+    }
+
+    public static long getTrackingStartTimeMillis() {
+        return sTrackingStartTimeMillis;
+    }
+
+    public static int getPointCount() {
+        return sPointCount;
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -95,6 +111,9 @@ public class WearLocationService extends Service {
                 locationRequest, locationCallback, Looper.getMainLooper());
 
         isTracking = true;
+        sIsTracking = true;
+        sPointCount = 0;
+        sTrackingStartTimeMillis = System.currentTimeMillis();
         startForeground(NOTIFICATION_ID, createNotification());
         Log.d(TAG, "Tracking started, writing to: " + currentFileName);
     }
@@ -105,6 +124,9 @@ public class WearLocationService extends Service {
         }
 
         isTracking = false;
+        sIsTracking = false;
+        sTrackingStartTimeMillis = 0;
+        sPointCount = 0;
         fusedLocationProviderClient.removeLocationUpdates(locationCallback);
         closeCsvWriter();
 
@@ -145,6 +167,7 @@ public class WearLocationService extends Service {
                     if (initialElapsedRealtimeNanos == null) {
                         initialElapsedRealtimeNanos = location.getElapsedRealtimeNanos();
                     }
+                    sPointCount++;
                     writeCsvLine(location);
                     broadcastLocation(location);
                 }
@@ -172,7 +195,7 @@ public class WearLocationService extends Service {
             csvWriter.write(location.getLatitude() + ","
                     + location.getLongitude() + ","
                     + location.getSpeed() + ","
-                    + String.format("%.3f", elapsedTimeSeconds));
+                    + String.format(java.util.Locale.US, "%.3f", elapsedTimeSeconds));
             csvWriter.newLine();
             csvWriter.flush();
         } catch (IOException e) {
