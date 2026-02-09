@@ -8,4 +8,7 @@
     <string name="button_start">Start</string>
     <string name="button_stop">Stop</string>
     <string name="permission_denied">Location permission required</string>
+    <string name="sync_sending">Syncing to phone…</string>
+    <string name="sync_success">Sent to phone</string>
+    <string name="sync_failed">Sync failed</string>
 </resources>

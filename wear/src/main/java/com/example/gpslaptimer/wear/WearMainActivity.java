@@ -19,9 +19,12 @@ import androidx.core.content.ContextCompat;
 
 import com.example.gpslaptimer.wear.databinding.ActivityWearMainBinding;
 
+import java.io.File;
 import java.util.Locale;
 
 public class WearMainActivity extends ComponentActivity {
+
+    private static final long SYNC_STATUS_DISPLAY_MS = 3000;
 
     private ActivityWearMainBinding binding;
 
@@ -39,6 +42,11 @@ public class WearMainActivity extends ComponentActivity {
         }
     };
 
+    private final Runnable resetStatusRunnable = () -> {
+        binding.textStatus.setText(R.string.status_ready);
+        binding.textStatus.setTextColor(getColor(android.R.color.darker_gray));
+    };
+
     private final BroadcastReceiver locationReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -54,7 +62,12 @@ public class WearMainActivity extends ComponentActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             if ("TRACKING_FINISHED".equals(intent.getAction())) {
+                String filePath = intent.getStringExtra("filePath");
+                String fileName = intent.getStringExtra("fileName");
                 resetToIdle();
+                if (filePath != null && fileName != null) {
+                    syncTrackToPhone(filePath, fileName);
+                }
             }
         }
     };
@@ -109,6 +122,7 @@ public class WearMainActivity extends ComponentActivity {
     protected void onDestroy() {
         super.onDestroy();
         timerHandler.removeCallbacks(timerRunnable);
+        timerHandler.removeCallbacks(resetStatusRunnable);
     }
 
     private void setupPermissionLauncher() {
@@ -138,7 +152,7 @@ public class WearMainActivity extends ComponentActivity {
         Intent intent = new Intent(this, WearLocationService.class);
         intent.setAction(WearLocationService.ACTION_STOP);
         startService(intent);
-        resetToIdle();
+        // resetToIdle() and sync are handled by finishedReceiver
     }
 
     private void startTracking() {
@@ -154,6 +168,8 @@ public class WearMainActivity extends ComponentActivity {
         pointCount = 0;
         binding.buttonStartStop.setText(R.string.button_stop);
         binding.textStatus.setText(R.string.status_tracking);
+        binding.textStatus.setTextColor(getColor(android.R.color.darker_gray));
+        timerHandler.removeCallbacks(resetStatusRunnable);
         startTimer();
     }
 
@@ -164,6 +180,31 @@ public class WearMainActivity extends ComponentActivity {
         binding.textTimer.setText(R.string.timer_default);
         binding.textStatus.setText(R.string.status_ready);
         binding.buttonStartStop.setText(R.string.button_start);
+    }
+
+    private void syncTrackToPhone(String filePath, String fileName) {
+        File csvFile = new File(filePath);
+
+        binding.textStatus.setText(R.string.sync_sending);
+        binding.textStatus.setTextColor(getColor(android.R.color.white));
+        timerHandler.removeCallbacks(resetStatusRunnable);
+
+        WearDataSyncManager.sendTrackFile(this, csvFile, fileName,
+                new WearDataSyncManager.SyncCallback() {
+                    @Override
+                    public void onSuccess() {
+                        binding.textStatus.setText(R.string.sync_success);
+                        timerHandler.postDelayed(resetStatusRunnable,
+                                SYNC_STATUS_DISPLAY_MS);
+                    }
+
+                    @Override
+                    public void onFailure(Exception e) {
+                        binding.textStatus.setText(R.string.sync_failed);
+                        timerHandler.postDelayed(resetStatusRunnable,
+                                SYNC_STATUS_DISPLAY_MS);
+                    }
+                });
     }
 
     private void startTimer() {

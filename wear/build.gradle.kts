@@ -45,4 +45,5 @@ dependencies {
     implementation(libs.constraintlayout)
     implementation("androidx.wear:wear:1.3.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation(libs.play.services.wearable)
 }
