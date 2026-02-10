@@ -133,6 +133,8 @@ public class WearLocationService extends Service {
         Intent finishedIntent = new Intent("TRACKING_FINISHED");
         finishedIntent.setPackage(getPackageName());
         finishedIntent.putExtra("fileName", currentFileName);
+        File csvFile = new File(getExternalFilesDir(null), currentFileName);
+        finishedIntent.putExtra("filePath", csvFile.getAbsolutePath());
         sendBroadcast(finishedIntent);
         Log.d(TAG, "Tracking finished, file: " + currentFileName);
 
