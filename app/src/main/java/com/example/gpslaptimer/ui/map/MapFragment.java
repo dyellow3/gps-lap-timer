@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.gpslaptimer.adapters.LapAdapter;
 import com.example.gpslaptimer.config.LapDetectionConfig;
+import com.example.gpslaptimer.models.Grid;
 import com.example.gpslaptimer.models.LapDetectionResult;
 import com.example.gpslaptimer.ui.settings.SettingsViewModel;
 import com.example.gpslaptimer.utils.LapDetection;
@@ -37,9 +38,11 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class MapFragment extends Fragment implements OnMapReadyCallback {
     private static final String TAG = "MapFragment";
+    private static final long GRID_MEMORY_WARNING_BYTES = 50L * 1024 * 1024; // 50 MB
 
     private SupportMapFragment mapFragment;
     private GoogleMap googleMap;
@@ -51,6 +54,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     private List<Double> gridBounds = new ArrayList<>();
     private List<Polyline> polylines = new ArrayList<>();
     private List<Lap> laps;
+    private LapAdapter lapAdapter;
     Lap fastestLap = null;
 
     private TextView textViewFastestLapTime;
@@ -114,13 +118,8 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
 
         RecyclerView recyclerView = rootView.findViewById(R.id.recyclerViewLaps);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-        LapAdapter adapter = new LapAdapter(laps, new LapAdapter.OnItemClickListener() {
-            @Override
-            public void onItemClick(String lapNumber) {
-                drawLap(Integer.parseInt(lapNumber));
-            }
-        });
-        recyclerView.setAdapter(adapter);
+        lapAdapter = new LapAdapter(new ArrayList<>(), lapNumber -> drawLap(Integer.parseInt(lapNumber)));
+        recyclerView.setAdapter(lapAdapter);
     }
 
     private void readAndStoreCoordinates(String fileName) {
@@ -186,10 +185,50 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
                 settingsViewModel.getSetting("grid_size").getValue(),
                 settingsViewModel.getSetting("direction_tolerance").getValue()
         );
+
+        long estimatedBytes = Grid.estimateMemoryBytes(gridBounds, config.getGridSize());
+
+        if (estimatedBytes > GRID_MEMORY_WARNING_BYTES) {
+            showGridMemoryWarning(estimatedBytes, config);
+        } else {
+            runLapDetection(config);
+        }
+    }
+
+    private void showGridMemoryWarning(long estimatedBytes, LapDetectionConfig config) {
+        double megabytes = estimatedBytes / (1024.0 * 1024.0);
+        double gridSize = config.getGridSize();
+
+        // Recompute dimensions for the message (same math as Grid)
+        double lonSpan = gridBounds.get(1) - gridBounds.get(0);
+        double latSpan = gridBounds.get(3) - gridBounds.get(2);
+        int gridWidth = (int) Math.ceil(lonSpan * 111319.9 / gridSize);
+        int gridHeight = (int) Math.ceil(latSpan * 111319.9 / gridSize);
+
+        String message = String.format(Locale.US,
+                "Estimated grid memory: %.0f MB (%,d \u00d7 %,d cells at %.1fm grid size)."
+                        + "\n\nThis may cause the app to crash on some devices."
+                        + "\n\nTry increasing Grid Size in Settings (currently %.1fm).",
+                megabytes, gridWidth, gridHeight, gridSize, gridSize);
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Large Track Warning")
+                .setMessage(message)
+                .setPositiveButton("Proceed Anyway", (dialog, which) -> runLapDetection(config))
+                .setNegativeButton("Cancel", (dialog, which) -> skipLapDetection())
+                .setCancelable(false)
+                .show();
+    }
+
+    private void runLapDetection(LapDetectionConfig config) {
         LapDetectionResult lapData = LapDetection.getLaps(locations, gridBounds, config);
 
         laps = lapData.getLaps();
         fastestLap = lapData.getFastestLap();
+
+        if (lapAdapter != null) {
+            lapAdapter.setLaps(laps);
+        }
 
         if (lapData.getFinishLine() != null) {
             MapDrawing.drawLine(googleMap, lapData.getFinishLine());
@@ -220,7 +259,18 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
             drawAll();
             textViewFastestLapTime.setText(String.format("Laps detected: %d (%d points)", laps.size(), pointsDetected));
         }
+    }
 
+    private void skipLapDetection() {
+        laps = new ArrayList<>();
+
+        if (lapAdapter != null) {
+            lapAdapter.setLaps(laps);
+        }
+
+        showMessage("No laps detected");
+        drawAll();
+        textViewFastestLapTime.setText(String.format("Laps detected: %d (%d points)", laps.size(), pointsDetected));
     }
 
     private void drawLap(int lapIndex) {

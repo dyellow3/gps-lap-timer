@@ -70,6 +70,25 @@ public class Grid {
         return v1.latitude * v2.latitude + v1.longitude * v2.longitude;
     }
 
+    /**
+     * Estimates the memory cost (in bytes) of the GridCell[][] reference array
+     * that would be allocated for the given bounds and square size.
+     * Uses the same dimension math as createGrid/constructor so they stay in sync.
+     */
+    public static long estimateMemoryBytes(List<Double> gridBounds, double squareSize) {
+        double minLon = gridBounds.get(0), maxLon = gridBounds.get(1);
+        double minLat = gridBounds.get(2), maxLat = gridBounds.get(3);
+
+        int gridWidth = (int) Math.ceil(degreesToMeters(maxLon - minLon) / squareSize);
+        int gridHeight = (int) Math.ceil(degreesToMeters(maxLat - minLat) / squareSize);
+
+        if (gridWidth < 1 || gridHeight < 1) {
+            return 0;
+        }
+
+        return (long) gridWidth * gridHeight * 4;
+    }
+
     private static double degreesToMeters(double degree) {
         return degree * 111319.9;
     }
