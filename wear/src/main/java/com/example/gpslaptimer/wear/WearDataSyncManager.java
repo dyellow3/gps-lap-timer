@@ -50,7 +50,7 @@ public class WearDataSyncManager {
         }
 
         long timestamp = System.currentTimeMillis();
-        String path = DataLayerPaths.TRACK_DATA_PATH + "/" + timestamp;
+        String path = DataLayerPaths.TRACK_DATA_PATH + "/" + fileName;
 
         Asset csvAsset = Asset.createFromBytes(csvBytes);
 
