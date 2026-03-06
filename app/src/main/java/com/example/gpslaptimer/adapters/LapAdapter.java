@@ -83,6 +83,12 @@ public class LapAdapter extends RecyclerView.Adapter<LapAdapter.LapViewHolder> {
 
     }
 
+    public void setLaps(List<Lap> newLaps) {
+        this.laps = newLaps != null ? newLaps : new ArrayList<>();
+        this.selectedPosition = RecyclerView.NO_POSITION;
+        notifyDataSetChanged();
+    }
+
     private String formatTime(double timeInSeconds) {
         int minutes = (int) (timeInSeconds / 60);
         double seconds = timeInSeconds % 60;
